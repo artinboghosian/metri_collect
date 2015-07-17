@@ -1,10 +1,20 @@
 module MetriCollect
   class Application
-    attr_accessor :publisher
-    attr_reader   :name
+    attr_reader :name, :publisher
 
     def initialize(name)
       @name = name
+    end
+
+    def publisher=(key_or_publisher)
+      @publisher = if key_or_publisher.is_a?(Symbol)
+        if Publisher[key_or_publisher]
+          Publisher[key_or_publisher]
+        else
+          raise ArgumentError, "no publisher found for key #{key_or_publisher}. Did you call #add_publisher in configuration?"
+        end
+      else
+      end
     end
 
     def metrics(&block)

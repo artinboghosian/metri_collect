@@ -1,5 +1,6 @@
 require "metri_collect/version"
 require "metri_collect/configuration"
+require "metri_collect/publisher"
 require "metri_collect/application"
 require "metri_collect/metric_collection"
 require "metri_collect/metric_definition"

@@ -10,6 +10,10 @@ module MetriCollect
       end
     end
 
+    def add_publisher(key, publisher)
+      Publisher[key] = publisher
+    end
+
     private
 
     def applications
