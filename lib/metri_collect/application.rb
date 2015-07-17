@@ -8,12 +8,9 @@ module MetriCollect
 
     def publisher=(key_or_publisher)
       @publisher = if key_or_publisher.is_a?(Symbol)
-        if Publisher[key_or_publisher]
-          Publisher[key_or_publisher]
-        else
-          raise ArgumentError, "no publisher found for key #{key_or_publisher}. Did you call #add_publisher in configuration?"
-        end
+        Publisher[key_or_publisher] || raise(ArgumentError, "publisher doesn't exist: #{key_or_publisher}")
       else
+        key_or_publisher
       end
     end
 
