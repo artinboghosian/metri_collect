@@ -18,7 +18,7 @@ module MetriCollect
       raise RuntimeError, "metrics have not been configured" unless block_given? || @metrics
 
       if block_given?
-        @metrics = MetricCollection.new(self)
+        @metrics = MetricCollection.new(name)
         @metrics.instance_eval(&block)
       else
         @metrics

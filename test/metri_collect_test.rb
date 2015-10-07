@@ -1,24 +1,6 @@
 require 'test_helper'
 
 class MetriCollectTest < Minitest::Test
-  class Publisher
-    def initialize
-      @published = []
-    end
-
-    def publish(metric)
-      @published << metric
-    end
-
-    def clear
-      @published.clear
-    end
-
-    def published?(metric)
-      @published.include?(metric)
-    end
-  end
-
   class User
     class << self
       def count; 0 end
@@ -35,11 +17,9 @@ class MetriCollectTest < Minitest::Test
   end
 
   def setup
-    @publisher = Publisher.new
+    @publisher = MetriCollect::Publisher[:test]
 
     MetriCollect.configure do |config|
-      config.add_publisher :test, @publisher
-
       config.application("CareerArc") do |application|
         application.publisher = :test
 
@@ -87,11 +67,6 @@ class MetriCollectTest < Minitest::Test
 
     @careerarc   = MetriCollect["CareerArc"]
     @careerbeam  = MetriCollect["CareerBeam"]
-  end
-
-  def test_publisher
-    assert_equal @publisher, @careerarc.publisher
-    assert_equal @publisher, @careerbeam.publisher
   end
 
   def test_metrics

@@ -2,9 +2,8 @@ module MetriCollect
   class MetricCollection
     include Enumerable
 
-    def initialize(application)
-      @application        = application
-      @namespaces         = [application.name]
+    def initialize(namespace)
+      @namespaces         = [namespace]
       @metric_definitions = []
     end
 
