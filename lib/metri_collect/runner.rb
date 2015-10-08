@@ -41,7 +41,7 @@ module MetriCollect
     # ===================================================================
 
     def frequency
-      options[:frequency] || 2.minutes
+      options[:frequency] || (2 * 60)
     end
 
     def filter
@@ -140,11 +140,12 @@ module MetriCollect
 
       # trap the term signal and exit when we receive it
       Signal.trap("TERM") { exit }
+      Signal.trap("INT") { exit }
 
       # rename this process as a worker
       rename_process!("worker[#{id}]")
 
-      next_run = 0
+      next_run = @run_time
       last_run = nil
       last_duration = nil
 
@@ -179,10 +180,10 @@ module MetriCollect
 
         end
 
-        log("Running metric: #{metric.id} (Last run: #{last_run.try(:to_s) || 'never'}, Duration: #{last_duration || 'n/a'})")
+        log("Running metric: #{metric.id} (Last run: #{last_run.nil? ? 'never' : last_run.to_s}, Duration: #{last_duration || 'n/a'})")
 
         run_time = next_run
-        next_run = run_time + time_span
+        next_run = run_time + frequency
         last_run = run_time
 
         begin
@@ -205,9 +206,13 @@ module MetriCollect
       Signal.trap("TERM") do
         stop
       end
+
+      Signal.trap("INT") do
+        stop
+      end
     end
 
-    def read_message(timeout=5)
+    def read_message(timeout=1)
       IO.select([@read_pipe], nil, nil, timeout)
     end
 
