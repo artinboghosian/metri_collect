@@ -140,7 +140,7 @@ module MetriCollect
 
       # trap the term signal and exit when we receive it
       Signal.trap("TERM") { exit }
-      Signal.trap("INT") { exit }
+      Signal.trap("TERM") { exit }
 
       # rename this process as a worker
       rename_process!("worker[#{id}]")
@@ -225,7 +225,7 @@ module MetriCollect
     # ===================================================================
 
     def existing_instances(filter="")
-      instances_raw = `ps xao pid,pgrp,cmd | grep '#{name_grep_string} #{filter}' | grep -iv #{Process.pid} | awk '{print $1 "\t" $2 "\t" $3}'`
+      instances_raw = `ps xao pid,pgrp,cmd | grep '#{process_name} #{name_grep_string} #{filter}' | grep -iv #{Process.pid} | awk '{print $1 "\t" $2 "\t" $3}'`
       instances_raw.split("\n").map do |row|
         pid, group, command = row.split("\t")
         ProcessInfo.new(pid.to_i, group.to_i, command)
@@ -292,7 +292,7 @@ module MetriCollect
     end
 
     def rename_process!(name)
-      $0 = ([ process_name, name ]).join(' ')
+      $0 = ([ process_name, @application.name, name ]).join(' ')
     end
 
     def log(message, newline=true)
