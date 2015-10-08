@@ -21,7 +21,7 @@ class MetriCollectTest < Minitest::Test
 
     MetriCollect.configure do |config|
       config.application("CareerArc") do |application|
-        application.publisher = :test
+        application.publishers :test
 
         application.metrics do
           namespace "Application" do
@@ -39,7 +39,7 @@ class MetriCollectTest < Minitest::Test
       end
 
       config.application("CareerBeam") do |application|
-        application.publisher = :test
+        application.publishers :test
 
         application.metrics do
           namespace "System" do

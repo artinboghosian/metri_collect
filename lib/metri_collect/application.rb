@@ -1,16 +1,19 @@
 module MetriCollect
   class Application
-    attr_reader :name, :publisher
+    attr_reader :name
 
     def initialize(name)
+      raise ArgumentError, "Application name must not be empty" if name.nil? || name.length < 1
       @name = name
     end
 
-    def publisher=(key_or_publisher)
-      @publisher = if key_or_publisher.is_a?(Symbol)
-        Publisher[key_or_publisher] || raise(ArgumentError, "publisher doesn't exist: #{key_or_publisher}")
-      else
-        key_or_publisher
+    def publishers(*keys_or_publishers)
+      @publishers = keys_or_publishers.map do |key_or_publisher|
+        if key_or_publisher.is_a?(Symbol)
+          Publisher[key_or_publisher] || raise(ArgumentError, "publisher doesn't exist: #{key_or_publisher}")
+        else
+          key_or_publisher
+        end
       end
     end
 
@@ -26,7 +29,9 @@ module MetriCollect
     end
 
     def publish(metric)
-      publisher.publish(metric)
+      @publishers.each do |publisher|
+        publisher.publish(metric)
+      end
     end
 
     def publish_all
