@@ -5,6 +5,7 @@ require "metri_collect/application"
 require "metri_collect/metric_collection"
 require "metri_collect/metric_definition"
 require "metri_collect/metric"
+require "metri_collect/runner"
 
 # publishers
 require "metri_collect/publisher/test_publisher"

@@ -1,3 +1,4 @@
+
 module MetriCollect
   module Publisher
     class << self
