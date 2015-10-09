@@ -5,15 +5,20 @@ module MetriCollect
     def initialize(name)
       raise ArgumentError, "Application name must not be empty" if name.nil? || name.length < 1
       @name = name
+      @publishers = []
     end
 
     def publishers(*keys_or_publishers)
-      @publishers = keys_or_publishers.map do |key_or_publisher|
-        if key_or_publisher.is_a?(Symbol)
-          Publisher[key_or_publisher] || raise(ArgumentError, "publisher doesn't exist: #{key_or_publisher}")
-        else
-          key_or_publisher
-        end
+      keys_or_publishers.each do |key_or_publisher|
+        add_publisher(key_or_publisher)
+      end
+    end
+
+    def add_publisher(key_or_publisher)
+      @publishers << if key_or_publisher.is_a?(Symbol)
+        Publisher[key_or_publisher] || raise(ArgumentError, "publisher doesn't exist: #{key_or_publisher}")
+      else
+        key_or_publisher
       end
     end
 
@@ -39,5 +44,6 @@ module MetriCollect
         publish(metric)
       end
     end
+
   end
 end
