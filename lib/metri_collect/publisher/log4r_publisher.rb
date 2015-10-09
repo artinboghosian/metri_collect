@@ -4,14 +4,17 @@ module MetriCollect
   module Publisher
 
     class Log4rPublisher
-      attr_accessor :logger
 
       def initialize(options={})
-        @logger = options[:logger] || Log4r::Logger.new("metri-collect")
+        @name = options[:name] || "metri-collect"
       end
 
       def publish(metric)
         logger.info build_message(metric)
+      end
+
+      def logger
+        Log4r::Logger[name]
       end
 
       protected
