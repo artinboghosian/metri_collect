@@ -14,7 +14,7 @@ module MetriCollect
       end
 
       def logger
-        Log4r::Logger[name]
+        Log4r::Logger[@name]
       end
 
       protected
