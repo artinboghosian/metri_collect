@@ -14,5 +14,18 @@ module MetriCollect
     def ==(other)
       id == other.id
     end
+
+    def self.from_object(obj)
+      return obj if obj.nil? || obj.is_a?(Metric)
+      return Metric.new.tap do |metric|
+        metric.name       = obj[:name]
+        metric.namespace  = obj[:namespace]
+        metric.value      = obj[:value]
+        metric.unit       = obj[:unit]
+        metric.timestamp  = obj[:timestamp]
+        metric.dimensions = obj[:dimensions]
+      end if obj.is_a?(Hash)
+      raise ArgumentError, "Unable to convert #{obj.class} into metric"
+    end
   end
 end

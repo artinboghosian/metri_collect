@@ -33,9 +33,9 @@ module MetriCollect
       end
     end
 
-    def publish(metric)
+    def publish(*metrics)
       @publishers.each do |publisher|
-        publisher.publish(metric)
+        publisher.publish(*metrics)
       end
     end
 

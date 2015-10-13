@@ -9,8 +9,10 @@ module MetriCollect
         @name = options[:name] || "metri-collect"
       end
 
-      def publish(metric)
-        logger.info build_message(metric)
+      def publish(*metrics)
+        metrics.each do |metric|
+          logger.info build_message(Metric.from_object(metric))
+        end
       end
 
       def logger

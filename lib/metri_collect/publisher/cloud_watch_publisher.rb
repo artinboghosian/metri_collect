@@ -38,17 +38,31 @@ module MetriCollect
         @client = Aws::CloudWatch::Client.new(options)
       end
 
-      def publish(metric)
-        @client.put_metric_data(
-          :namespace => metric.namespace,
-          :metric_data => [{
-            :metric_name => metric.name,
-            :dimensions => metric.dimensions,
-            :timestamp => metric.timestamp,
-            :value => metric.value,
-            :unit => unit_string(metric.unit)
-          }]
-        )
+      def publish(*metrics)
+        # group metrics by namespace
+        namespaces = {}
+        metrics.each do |obj|
+          metric = Metric.from_object(obj)
+          namespaces[metric.namespace] ||= []
+          namespaces[metric.namespace] << metric
+        end
+
+        # publish each namespace...
+        namespaces.each do |namespace, metrics_array|
+          puts "Pushing namespace: #{namespace} (has #{metrics_array.size} metrics)"
+          @client.put_metric_data(
+            :namespace => namespace,
+            :metric_data => metrics_array.map do |metric|
+              {
+                :metric_name => metric.name,
+                :dimensions => metric.dimensions,
+                :timestamp => metric.timestamp,
+                :value => metric.value,
+                :unit => unit_string(metric.unit)
+              }
+            end
+          )
+        end
       end
 
       protected

@@ -10,8 +10,10 @@ module MetriCollect
         @published.clear
       end
 
-      def publish(metric)
-        @published.push(metric)
+      def publish(*metrics)
+        metrics.each do |metric|
+          @published.push(Metric.from_object(metric))
+        end
       end
 
       def published?(metric)
