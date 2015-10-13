@@ -49,7 +49,6 @@ module MetriCollect
 
         # publish each namespace...
         namespaces.each do |namespace, metrics_array|
-          puts "Pushing namespace: #{namespace} (has #{metrics_array.size} metrics)"
           @client.put_metric_data(
             :namespace => namespace,
             :metric_data => metrics_array.map do |metric|
@@ -68,7 +67,7 @@ module MetriCollect
       protected
 
       def unit_string(unit)
-        UNITS.has_key?(unit) ? UNITS[unit] : UNITS[:none]
+        UNITS.fetch(unit, UNITS[:none])
       end
 
     end

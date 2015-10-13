@@ -1,5 +1,6 @@
 module MetriCollect
   class Configuration
+
     def [](key)
       applications[key]
     end
@@ -10,6 +11,10 @@ module MetriCollect
 
     def add_publisher(key, publisher)
       Publisher.add_publisher(key, publisher)
+    end
+
+    def default_application
+      applications.values.first
     end
 
     private
