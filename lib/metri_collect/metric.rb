@@ -1,10 +1,18 @@
 module MetriCollect
   class Metric
-    attr_writer   :dimensions
-    attr_accessor :name, :namespace, :value, :unit, :timestamp
+    attr_writer   :dimensions, :unit, :timestamp
+    attr_accessor :name, :namespace, :value
 
     def id
       "#{namespace}/#{name}"
+    end
+
+    def unit
+      @unit || :count
+    end
+
+    def timestamp
+      @timestamp || Time.now
     end
 
     def dimensions
@@ -21,7 +29,6 @@ module MetriCollect
         metric.name       = obj[:name]
         metric.namespace  = obj[:namespace]
         metric.value      = obj[:value]
-        metric.unit       = obj[:unit]
         metric.timestamp  = obj[:timestamp]
         metric.dimensions = obj[:dimensions]
       end if obj.is_a?(Hash)
