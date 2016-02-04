@@ -33,6 +33,10 @@ class MetriCollectTest < Minitest::Test
               metric "Active" do
                 value User.active_count
               end
+
+              metric "Random" do
+                value (rand * 100).to_i
+              end
             end
           end
         end
@@ -132,5 +136,10 @@ class MetriCollectTest < Minitest::Test
         assert @publisher.published?(active)
       end
     end
+  end
+
+  def test_runner
+    runner = MetriCollect::Runner.new("CareerArc", frequency: 5, iterations: 3)
+    runner.start
   end
 end

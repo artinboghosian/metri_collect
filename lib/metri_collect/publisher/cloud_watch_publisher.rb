@@ -49,18 +49,20 @@ module MetriCollect
 
         # publish each namespace...
         namespaces.each do |namespace, metrics_array|
-          @client.put_metric_data(
-            :namespace => namespace,
-            :metric_data => metrics_array.map do |metric|
-              {
-                :metric_name => metric.name,
-                :dimensions => metric.dimensions,
-                :timestamp => metric.timestamp,
-                :value => metric.value,
-                :unit => unit_string(metric.unit)
-              }
-            end
-          )
+          array_to_groups(metrics_array) do |metrics_group|
+            @client.put_metric_data(
+              :namespace => namespace,
+              :metric_data => metrics_group.map do |metric|
+                {
+                  :metric_name => metric.name,
+                  :dimensions => metric.dimensions,
+                  :timestamp => metric.timestamp,
+                  :value => metric.value,
+                  :unit => unit_string(metric.unit)
+                }
+              end
+            )
+          end
         end
       end
 
@@ -68,6 +70,30 @@ module MetriCollect
 
       def unit_string(unit)
         UNITS.fetch(unit, UNITS[:none])
+      end
+
+      def array_to_groups(array, number)
+        # size.div number gives minor group size;
+        # size % number gives how many objects need extra accommodation;
+        # each group hold either division or division + 1 items.
+        division = array.size.div number
+        modulo = array.size % number
+
+        # create a new array avoiding dup
+        groups = []
+        start = 0
+
+        number.times do |index|
+          length = division + (modulo > 0 && modulo > index ? 1 : 0)
+          groups << last_group = array.slice(start, length)
+          start += length
+        end
+
+        if block_given?
+          groups.each { |g| yield(g) }
+        else
+          groups
+        end
       end
 
     end
