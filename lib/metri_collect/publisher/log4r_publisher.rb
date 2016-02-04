@@ -29,7 +29,7 @@ module MetriCollect
           :_value => metric.value,
           :_unit => metric.unit,
           :short_message =>
-            "Published '#{metric.id}' with value '#{metric.value}'"
+            "Published #{metric}"
         }
 
         metric.dimensions.each do |k,v|

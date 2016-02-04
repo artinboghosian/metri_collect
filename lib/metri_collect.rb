@@ -22,8 +22,8 @@ module MetriCollect
       configuration[name]
     end
 
-    def publish(*metrics)
-      configuration.default_application.publish(*metrics)
+    def publish(*metrics_or_ids)
+      configuration.default_application.publish(*metrics_or_ids)
     end
 
     private

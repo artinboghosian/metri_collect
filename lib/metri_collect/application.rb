@@ -33,7 +33,15 @@ module MetriCollect
       end
     end
 
-    def publish(*metrics)
+    def publish(*metrics_or_ids)
+      metrics = metrics_or_ids.map do |metric_or_id|
+        if metric_or_id.is_a?(String)
+          self.metrics[metric_or_id]
+        else
+          metric_or_id
+        end
+      end
+
       @publishers.each do |publisher|
         publisher.publish(*metrics)
       end

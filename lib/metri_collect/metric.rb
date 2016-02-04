@@ -4,7 +4,7 @@ module MetriCollect
     attr_accessor :name, :namespace, :value
 
     def id
-      "#{namespace}/#{name}"
+      self.class.id(name, namespace)
     end
 
     def unit
@@ -21,6 +21,15 @@ module MetriCollect
 
     def ==(other)
       id == other.id
+    end
+
+    def to_s
+      dimension_string = dimensions.empty? ? "none" : dimensions.map { |d| "#{d[:name]}: #{d[:value]}" }.join(", ")
+      "Metric '#{id}' has value '#{value}' (dimensions: #{dimension_string}) at #{timestamp}"
+    end
+
+    def self.id(name, namespace)
+      "#{namespace}/#{name}"
     end
 
     def self.from_object(obj)

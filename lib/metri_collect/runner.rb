@@ -52,6 +52,10 @@ module MetriCollect
       options[:logger] || Logger.new(STDOUT)
     end
 
+    def iterations
+      options[:iterations]
+    end
+
     # ===================================================================
     # forking callbacks
     # ===================================================================
@@ -119,7 +123,7 @@ module MetriCollect
 
         # fork, and store the process
         metrics[metric.id] = fork do
-          run_worker!(metric, count)
+          run_worker!(metric.id, count)
         end
 
         count += 1
@@ -131,15 +135,14 @@ module MetriCollect
       Process.waitall
 
       # read the signal message to see what to do...
-      message = @read_pipe.read_nonblock(4) || '(none)'
+      message = @read_pipe.read_nonblock(4) rescue '(none)'
       log("App Metrics has been stopped with message '#{message}'")
 
     end
 
-    def run_worker!(metric, id)
+    def run_worker!(metric_id, id)
 
       # trap the term signal and exit when we receive it
-      Signal.trap("TERM") { exit }
       Signal.trap("TERM") { exit }
 
       # rename this process as a worker
@@ -148,6 +151,7 @@ module MetriCollect
       next_run = @run_time
       last_run = nil
       last_duration = nil
+      iteration_count = 0
 
       # call the after-fork callback (if defined)...
       @after_fork.call unless @after_fork.nil?
@@ -180,17 +184,24 @@ module MetriCollect
 
         end
 
-        log("Running metric: #{metric.id} (Last run: #{last_run.nil? ? 'never' : last_run.to_s}, Duration: #{last_duration || 'n/a'})")
+        log("Running metric: #{metric_id} (Last run: #{last_run.nil? ? 'never' : last_run.to_s}, Duration: #{last_duration || 'n/a'})")
 
         run_time = next_run
         next_run = run_time + frequency
         last_run = run_time
 
         begin
-          application.publish(metric)
+          application.publish(metric_id)
           last_duration = (Time.now - last_run)
         rescue Exception => ex
-          log("Child processing metric #{metric.id} caught exception:\n#{ex.message}\n#{ex.backtrace.join("\n")}")
+          log("Child processing metric #{metric_id} caught exception:\n#{ex.message}\n#{ex.backtrace.join("\n")}")
+        end
+
+        # if a maximum number of iterations has been specified,
+        # and we have reached that number of iterations, then exit...
+        if iterations != nil && (iteration_count += 1) >= iterations
+          log("Terminating this thread because it has reached the desired iteration count of #{iterations}")
+          exit
         end
       end
     end
