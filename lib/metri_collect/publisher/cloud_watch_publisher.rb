@@ -49,7 +49,7 @@ module MetriCollect
 
         # publish each namespace...
         namespaces.each do |namespace, metrics_array|
-          array_to_groups(metrics_array) do |metrics_group|
+          array_to_groups(metrics_array, 20) do |metrics_group|
             @client.put_metric_data(
               :namespace => namespace,
               :metric_data => metrics_group.map do |metric|
