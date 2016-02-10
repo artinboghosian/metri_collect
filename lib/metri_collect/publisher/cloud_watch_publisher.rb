@@ -89,6 +89,9 @@ module MetriCollect
           start += length
         end
 
+        # only select groups that have members
+        groups = groups.reject(&:empty?)
+
         if block_given?
           groups.each { |g| yield(g) }
         else
