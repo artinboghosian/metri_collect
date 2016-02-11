@@ -6,12 +6,12 @@ module MetriCollect
       raise ArgumentError, "Application name must not be empty" if name.nil? || name.length < 1
 
       @name = name
-      @namespace_prefix = nil
+      @metric_prefix = nil
       @publishers = []
     end
 
-    def prefix_namespace_with(prefix)
-      @namespace_prefix = prefix
+    def prefix_metrics_with(prefix)
+      @metric_prefix = prefix
     end
 
     def publishers(*keys_or_publishers)
@@ -46,7 +46,7 @@ module MetriCollect
           self.metrics[metric_or_id]
         else
           metric = Metric.from_object(metric_or_id)
-          metric.namespace = "#{namespace_prefix}/#{metric.namespace}" if namespace_prefix
+          metric.namespace = metric.namespace.split("/").insert(1, metric_prefix).join("/") if metric_prefix
           metric
         end
       end
@@ -65,11 +65,11 @@ module MetriCollect
     private
 
     def namespace
-      namespace_prefix ? "#{namespace_prefix}/#{name}" : name
+      metric_prefix ? "#{name}/#{metric_prefix}" : name
     end
 
-    def namespace_prefix
-      @namespace_prefix
+    def metric_prefix
+      @metric_prefix
     end
   end
 end
