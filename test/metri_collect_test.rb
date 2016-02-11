@@ -66,11 +66,25 @@ class MetriCollectTest < Minitest::Test
             end
           end
         end
+
+        config.application("Namespace") do |application|
+          application.publishers :test
+          application.prefix_namespace_with "development"
+
+          application.metrics do
+            namespace "System" do
+              metric "LoadAverage" do
+                value System.load_average
+              end
+            end
+          end
+        end
       end
     end
 
     @careerarc   = MetriCollect["CareerArc"]
     @careerbeam  = MetriCollect["CareerBeam"]
+    @namespace   = MetriCollect["Namespace"]
   end
 
   def test_metrics
@@ -116,6 +130,15 @@ class MetriCollectTest < Minitest::Test
         end
       end
     end
+
+    System.stub :load_average, 0.25 do
+      load_average, _ = @namespace.metrics.to_a
+
+      assert_equal 0.25, load_average.value
+      assert_equal "LoadAverage", load_average.name
+      assert_equal "development/Namespace/System", load_average.namespace
+      assert_equal :count, load_average.unit
+    end
   end
 
   def test_publish
@@ -136,6 +159,37 @@ class MetriCollectTest < Minitest::Test
         assert @publisher.published?(active)
       end
     end
+  end
+
+  def test_direct_publish
+    timestamp = Time.now
+    options   = {
+      namespace: "CareerArc/Counters",
+      name: "aae:heartbeat",
+      value: 1,
+      timestamp: timestamp,
+      unit: :count
+    }
+
+    MetriCollect["Namespace"].publish(options)
+
+    metric = @publisher.published.last
+
+    assert_equal metric.namespace, "development/CareerArc/Counters"
+    assert_equal metric.name, "aae:heartbeat"
+    assert_equal metric.value, 1
+    assert_equal metric.timestamp, timestamp
+    assert_equal metric.unit, :count
+
+    MetriCollect["CareerArc"].publish(options)
+
+    metric = @publisher.published.last
+
+    assert_equal metric.namespace, "CareerArc/Counters"
+    assert_equal metric.name, "aae:heartbeat"
+    assert_equal metric.value, 1
+    assert_equal metric.timestamp, timestamp
+    assert_equal metric.unit, :count
   end
 
   def test_cloud_watch_publisher_grouping

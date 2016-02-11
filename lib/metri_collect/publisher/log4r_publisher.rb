@@ -11,7 +11,7 @@ module MetriCollect
 
       def publish(*metrics)
         metrics.each do |metric|
-          logger.info build_message(Metric.from_object(metric))
+          logger.info build_message(metric)
         end
       end
 

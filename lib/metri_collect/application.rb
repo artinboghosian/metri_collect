@@ -4,8 +4,14 @@ module MetriCollect
 
     def initialize(name)
       raise ArgumentError, "Application name must not be empty" if name.nil? || name.length < 1
+
       @name = name
+      @namespace_prefix = nil
       @publishers = []
+    end
+
+    def prefix_namespace_with(prefix)
+      @namespace_prefix = prefix
     end
 
     def publishers(*keys_or_publishers)
@@ -26,7 +32,7 @@ module MetriCollect
       raise RuntimeError, "metrics have not been configured" unless block_given? || @metrics
 
       if block_given?
-        @metrics = MetricCollection.new(name)
+        @metrics = MetricCollection.new(namespace)
         @metrics.instance_eval(&block)
       else
         @metrics
@@ -35,10 +41,13 @@ module MetriCollect
 
     def publish(*metrics_or_ids)
       metrics = metrics_or_ids.map do |metric_or_id|
-        if metric_or_id.is_a?(String)
+        case metric_or_id
+        when String
           self.metrics[metric_or_id]
         else
-          metric_or_id
+          metric = Metric.from_object(metric_or_id)
+          metric.namespace = "#{namespace_prefix}/#{metric.namespace}" if namespace_prefix
+          metric
         end
       end
 
@@ -53,5 +62,14 @@ module MetriCollect
       end
     end
 
+    private
+
+    def namespace
+      namespace_prefix ? "#{namespace_prefix}/#{name}" : name
+    end
+
+    def namespace_prefix
+      @namespace_prefix
+    end
   end
 end
