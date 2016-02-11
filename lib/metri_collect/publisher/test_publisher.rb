@@ -6,14 +6,18 @@ module MetriCollect
         @published = []
       end
 
+      def published
+        @published
+      end
+
       def clear
         @published.clear
       end
 
       def publish(*metrics)
         metrics.each do |metric|
-          metric_obj = Metric.from_object(metric)
-          @published.push(metric_obj)
+          @published.push(metric)
+
           puts "TestPublisher: Published #{metric}"
         end
       end

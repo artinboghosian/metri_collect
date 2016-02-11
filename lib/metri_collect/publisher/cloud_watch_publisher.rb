@@ -41,8 +41,8 @@ module MetriCollect
       def publish(*metrics)
         # group metrics by namespace
         namespaces = {}
-        metrics.each do |obj|
-          metric = Metric.from_object(obj)
+
+        metrics.each do |metric|
           namespaces[metric.namespace] ||= []
           namespaces[metric.namespace] << metric
         end
