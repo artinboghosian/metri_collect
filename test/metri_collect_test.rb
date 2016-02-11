@@ -69,7 +69,7 @@ class MetriCollectTest < Minitest::Test
 
         config.application("Namespace") do |application|
           application.publishers :test
-          application.prefix_namespace_with "development"
+          application.prefix_metrics_with "development"
 
           application.metrics do
             namespace "System" do
@@ -136,7 +136,7 @@ class MetriCollectTest < Minitest::Test
 
       assert_equal 0.25, load_average.value
       assert_equal "LoadAverage", load_average.name
-      assert_equal "development/Namespace/System", load_average.namespace
+      assert_equal "Namespace/development/System", load_average.namespace
       assert_equal :count, load_average.unit
     end
   end
@@ -175,7 +175,7 @@ class MetriCollectTest < Minitest::Test
 
     metric = @publisher.published.last
 
-    assert_equal metric.namespace, "development/CareerArc/Counters"
+    assert_equal metric.namespace, "CareerArc/development/Counters"
     assert_equal metric.name, "aae:heartbeat"
     assert_equal metric.value, 1
     assert_equal metric.timestamp, timestamp
