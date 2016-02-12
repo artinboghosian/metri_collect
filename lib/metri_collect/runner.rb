@@ -116,14 +116,14 @@ module MetriCollect
       @before_fork.call unless @before_fork.nil?
 
       # create workers for each metric...
-      application.metrics.each do |metric|
+      application.metric_ids.each do |metric_id|
 
         # skip this metric if we are filtering it...
-        next if filter && metric.id !~ filter
+        next if filter && metric_id !~ filter
 
         # fork, and store the process
-        metrics[metric.id] = fork do
-          run_worker!(metric.id, count)
+        metrics[metric_id] = fork do
+          run_worker!(metric_id, count)
         end
 
         count += 1
