@@ -39,6 +39,10 @@ module MetriCollect
       end
     end
 
+    def metric_ids
+      metrics.ids
+    end
+
     def publish(*metrics_or_ids)
       metrics = metrics_or_ids.map do |metric_or_id|
         case metric_or_id

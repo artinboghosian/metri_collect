@@ -23,6 +23,10 @@ module MetriCollect
       @metric_definitions.values.map(&:call).each(&block)
     end
 
+    def ids
+      @metric_definitions.keys
+    end
+
     def [](id)
       raise ArgumentError, "Metric '#{id}' has not been defined" unless metric_defined?(id)
       @metric_definitions[id].call
