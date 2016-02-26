@@ -1,5 +1,4 @@
 
-
 module MetriCollect
   class Runner
 
@@ -29,7 +28,7 @@ module MetriCollect
       return unless running?
 
       log("Stopping Runner...")
-      write_message("EXIT")
+      stop_children
     end
 
     def running?
@@ -112,6 +111,9 @@ module MetriCollect
       # initialize signaling...
       init_signaling
 
+      # initialize IPC...
+      init_ipc(true)
+
       # call the before-fork callback (if defined)...
       @before_fork.call unless @before_fork.nil?
 
@@ -134,39 +136,29 @@ module MetriCollect
       # only happen when we catch a stop or restart signal...
       Process.waitall
 
-      # read the signal message to see what to do...
-      message = @read_pipe.read_nonblock(4) rescue '(none)'
-      log("App Metrics has been stopped with message '#{message}'")
+      @running = false
 
+      # read the signal message to see what to do...
+      message = read_exit_message
+      log("App Metrics has been stopped with message '#{message}'")
     end
 
     def run_worker!(metric_id, id)
 
-      # trap the term signal and exit when we receive it
-      Signal.trap("TERM") { exit }
-
-      # rename this process as a worker
-      rename_process!("worker[#{id}]")
+      # initialize the worker (after-fork, IPC init, etc)...
+      init_worker(id)
 
       next_run = @run_time
       last_run = nil
       last_duration = nil
       iteration_count = 0
 
-      # call the after-fork callback (if defined)...
-      @after_fork.call unless @after_fork.nil?
-
       loop do
 
         # sleep while waiting for next run...
         while Time.now < next_run
 
-          # wait up to 5 seconds for a message
-          # on the read-end of the pipe.  if one is
-          # received, that means it's time to exit...
-          message = read_message
-
-          unless message.nil?
+          if received_exit_message?
             log("Terminating this thread because an exit message was received from the parent")
             exit
           end
@@ -206,14 +198,25 @@ module MetriCollect
       end
     end
 
+    def init_worker(id)
+      # initialize IPC...
+      init_ipc(false)
+
+      # trap the term signal and exit when we receive it
+      Signal.trap("TERM") { exit }
+
+      # rename this process as a worker
+      rename_process!("worker[#{id}]")
+
+      # call the after-fork callback (if defined)...
+      @after_fork.call unless @after_fork.nil?
+    end
+
     # ===================================================================
     # signaling
     # ===================================================================
 
     def init_signaling
-      # create a pipe for ipc...
-      @read_pipe, @write_pipe = IO.pipe
-
       Signal.trap("TERM") do
         stop
       end
@@ -223,12 +226,31 @@ module MetriCollect
       end
     end
 
-    def read_message(timeout=1)
-      IO.select([@read_pipe], nil, nil, timeout)
+    def init_ipc(master)
+      if master
+        # create a pipe for ipc...
+        @read_pipe, @write_pipe = IO.pipe
+      else
+        # child threads don't write...
+        @write_pipe.close
+      end
     end
 
-    def write_message(message)
-      @write_pipe.write(message)
+    def stop_children
+      write_exit_message
+    end
+
+    def received_exit_message?(timeout=1)
+      rs, ws, = IO.select([@read_pipe], nil, nil, timeout)
+      rs && rs[0]
+    end
+
+    def read_exit_message
+      @read_pipe.read_nonblock(4) rescue '(none)'
+    end
+
+    def write_exit_message
+      @write_pipe.write("EXIT")
     end
 
     # ===================================================================
