@@ -8,6 +8,7 @@ module MetriCollect
       UNITS = {
          :seconds => "Seconds",
          :microseconds => "Microseconds",
+         :milliseconds => "Milliseconds",
          :bytes => "Bytes",
          :kilobytes => "Kilobytes",
          :megabytes => "Megabytes",
