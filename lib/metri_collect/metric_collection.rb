@@ -13,14 +13,22 @@ module MetriCollect
       @namespaces.pop
     end
 
-    def metric(name, &block)
+    def group(name, &block)
       id = Metric.id(name, current_namespace)
-      raise ArgumentError, "Metric '#{id}' has already been defined" if metric_defined?(id)
-      @metric_definitions[id] = MetricDefinition.new(name, current_namespace, &block)
+
+      if metric_defined?(id)
+        raise ArgumentError, "Metric '#{id}' has already been defined"
+      else
+        @metric_definitions[id] = MetricDefinitionGroup.new(name, current_namespace, &block)
+      end
+    end
+
+    def metric(name, &block)
+      group(name) { metric(&block) }
     end
 
     def each(&block)
-      @metric_definitions.values.map(&:call).each(&block)
+      @metric_definitions.values.flat_map(&:call).each(&block)
     end
 
     def ids
