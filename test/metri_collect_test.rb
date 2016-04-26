@@ -83,16 +83,38 @@ class MetriCollectTest < Minitest::Test
             end
           end
         end
+      end
 
-        config.application("Namespace") do |application|
-          application.publishers :test
-          application.prefix_metrics_with "development"
+      config.application("Namespace") do |application|
+        application.publishers :test
+        application.prefix_metrics_with "development"
 
-          application.metrics do
-            namespace "System" do
-              metric "LoadAverage" do
-                value System.load_average
-              end
+        application.metrics do
+          namespace "System" do
+            metric "LoadAverage" do
+              value System.load_average
+            end
+          end
+        end
+      end
+
+      config.template :instance_metric do |name, &block|
+        dimensions "InstanceId" => "i-123456"
+      end
+
+      config.application("Template") do |application|
+        application.publishers :test
+
+        application.metrics do
+          instance_metric "Instance" do
+            value 25
+            dimensions "Type" => "Specific"
+          end
+
+          group "InstanceGroup" do
+            instance_metric do
+              value 10
+              dimensions "Type" => "Group"
             end
           end
         end
@@ -102,6 +124,7 @@ class MetriCollectTest < Minitest::Test
     @careerarc   = MetriCollect["CareerArc"]
     @careerbeam  = MetriCollect["CareerBeam"]
     @namespace   = MetriCollect["Namespace"]
+    @template    = MetriCollect["Template"]
   end
 
   def test_metrics
@@ -171,6 +194,24 @@ class MetriCollectTest < Minitest::Test
       assert_equal "Namespace/development/System", load_average.namespace
       assert_equal :count, load_average.unit
     end
+
+    instance, instance_group, _ = @template.metrics.to_a
+
+    assert_equal "Instance", instance.name
+    assert_equal "Template", instance.namespace
+    assert_equal 25, instance.value
+    assert_equal "Type", instance.dimensions.first[:name]
+    assert_equal "Specific", instance.dimensions.first[:value]
+    assert_equal "InstanceId", instance.dimensions.last[:name]
+    assert_equal "i-123456", instance.dimensions.last[:value]
+
+    assert_equal "InstanceGroup", instance_group.name
+    assert_equal "Template", instance_group.namespace
+    assert_equal 10, instance_group.value
+    assert_equal "Type", instance_group.dimensions.first[:name]
+    assert_equal "Group", instance_group.dimensions.first[:value]
+    assert_equal "InstanceId", instance_group.dimensions.last[:name]
+    assert_equal "i-123456", instance_group.dimensions.last[:value]
   end
 
   def test_publish
