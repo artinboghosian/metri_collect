@@ -44,16 +44,7 @@ module MetriCollect
     end
 
     def publish(*metrics_or_ids)
-      metrics = metrics_or_ids.map do |metric_or_id|
-        case metric_or_id
-        when String
-          self.metrics[metric_or_id]
-        else
-          metric = Metric.from_object(metric_or_id)
-          metric.namespace = metric.namespace.split("/").insert(1, metric_prefix).join("/") if metric_prefix
-          metric
-        end
-      end
+      metrics = convert_to_metric(*metrics_or_ids)
 
       @publishers.each do |publisher|
         publisher.publish(*metrics)
@@ -74,6 +65,21 @@ module MetriCollect
 
     def metric_prefix
       @metric_prefix
+    end
+
+    def convert_to_metric(*metrics_or_ids)
+      metrics_or_ids.flat_map do |metric_or_id|
+        case metric_or_id
+        when Array
+          convert_to_metric(*metric_or_id)
+        when String
+          metrics[metric_or_id]
+        else
+          metric = Metric.from_object(metric_or_id)
+          metric.namespace = metric.namespace.split("/").insert(1, metric_prefix).join("/") if metric_prefix
+          metric
+        end
+      end
     end
   end
 end

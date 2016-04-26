@@ -33,9 +33,26 @@ class MetriCollectTest < Minitest::Test
               metric "Active" do
                 value User.active_count
               end
+            end
+          end
 
-              metric "Random" do
-                value (rand * 100).to_i
+          namespace "Unicorn" do
+            metric "WorkerCount" do
+              value rand(1..10)
+            end
+
+            group "Requests" do
+              sock_path = "/home/deploy/www/career_arc/shared/system/.sock"
+              stats = { sock_path => OpenStruct.new(active: rand(1..10), queued: rand(1..10)) }
+
+              metric do
+                value stats[sock_path].active
+                dimensions "Type" => "Active"
+              end
+
+              metric do
+                value stats[sock_path].queued
+                dimensions "Type" => "Queued"
               end
             end
           end
@@ -90,7 +107,7 @@ class MetriCollectTest < Minitest::Test
   def test_metrics
     User.stub :count, 50 do
       User.stub :active_count, 25 do
-        total, active = @careerarc.metrics.to_a
+        total, active, workers, active_requests, queued_requests = @careerarc.metrics.to_a
 
         assert_equal 50, total.value
         assert_equal "Total", total.name
@@ -101,6 +118,21 @@ class MetriCollectTest < Minitest::Test
         assert_equal "Active", active.name
         assert_equal "CareerArc/Application/Users", active.namespace
         assert_equal :count, active.unit
+
+        assert_equal "Requests", active_requests.name
+        assert_equal "CareerArc/Unicorn", active_requests.namespace
+        assert_equal "Type", active_requests.dimensions.first[:name]
+        assert_equal "Active", active_requests.dimensions.first[:value]
+
+        assert_equal "Requests", queued_requests.name
+        assert_equal "CareerArc/Unicorn", queued_requests.namespace
+        assert_equal "Type", queued_requests.dimensions.first[:name]
+        assert_equal "Queued", queued_requests.dimensions.first[:value]
+
+        refute_nil active_requests.timestamp
+        refute_nil queued_requests.timestamp
+
+        assert_equal active_requests.timestamp.to_i, queued_requests.timestamp.to_i
       end
     end
 
