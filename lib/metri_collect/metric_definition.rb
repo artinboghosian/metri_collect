@@ -26,7 +26,7 @@ module MetriCollect
     end
 
     def template(*names)
-      names.each { |name| @templates << MetricTemplate[name] }
+      names.each { |name| @templates << MetricTemplate.fetch(name) }
     end
 
     def name(name)
