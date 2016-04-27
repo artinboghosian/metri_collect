@@ -19,13 +19,5 @@ module MetriCollect
       @definitions ||= []
       @definitions << MetricDefinition.new(@name, @namespace, &block)
     end
-
-    def method_missing(method, *args, &block)
-      if template = MetricTemplate[method]
-        metric { template.apply(self, &block) }
-      else
-        super
-      end
-    end
   end
 end

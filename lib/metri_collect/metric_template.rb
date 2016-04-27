@@ -5,6 +5,10 @@ module MetriCollect
         templates[key]
       end
 
+      def fetch(key)
+        self[key] || (raise ArgumentError, "template not defined: #{key}")
+      end
+
       def add_template(key, &body)
         templates[key] = new(key, &body)
       end
@@ -21,9 +25,8 @@ module MetriCollect
       @body = body
     end
 
-    def apply(context, &block)
-      context.instance_eval(&block)
-      context.instance_eval(&@body)
+    def apply(definition)
+      definition.instance_eval(&@body)
     end
   end
 end
