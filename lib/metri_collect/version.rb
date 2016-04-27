@@ -1,3 +1,3 @@
 module MetriCollect
-  VERSION = "0.1.16"
+  VERSION = "0.1.21"
 end
