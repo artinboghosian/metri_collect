@@ -98,7 +98,7 @@ class MetriCollectTest < Minitest::Test
         end
       end
 
-      config.template :instance_metric do |name, &block|
+      config.template :instance do |name, &block|
         dimensions "InstanceId" => "i-123456"
       end
 
@@ -106,13 +106,15 @@ class MetriCollectTest < Minitest::Test
         application.publishers :test
 
         application.metrics do
-          instance_metric "Instance" do
+          metric "Instance" do
+            template :instance
             value 25
             dimensions "Type" => "Specific"
           end
 
           group "InstanceGroup" do
-            instance_metric do
+            metric do
+              template :instance
               value 10
               dimensions "Type" => "Group"
             end

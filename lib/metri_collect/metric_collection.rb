@@ -40,14 +40,6 @@ module MetriCollect
       @metric_definitions[id].call
     end
 
-    def method_missing(method, *args, &block)
-      if template = MetricTemplate[method]
-        metric(*args) { template.apply(self, &block) }
-      else
-        super
-      end
-    end
-
     private
 
     def current_namespace

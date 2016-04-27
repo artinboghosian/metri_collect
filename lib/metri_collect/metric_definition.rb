@@ -4,6 +4,7 @@ module MetriCollect
       @name       = name
       @namespace  = namespace
       @dimensions = []
+      @templates  = []
       @body       = body
     end
 
@@ -11,6 +12,8 @@ module MetriCollect
       @dimensions = []
 
       instance_eval(&@body)
+
+      @templates.each { |template| template.apply(self) }
 
       Metric.new.tap do |metric|
         metric.name       = @name
@@ -20,6 +23,10 @@ module MetriCollect
         metric.timestamp  = @timestamp
         metric.dimensions = @dimensions
       end
+    end
+
+    def template(*names)
+      names.each { |name| @templates << MetricTemplate[name] }
     end
 
     def name(name)
