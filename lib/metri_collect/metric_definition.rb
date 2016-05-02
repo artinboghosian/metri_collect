@@ -5,6 +5,7 @@ module MetriCollect
       @namespace  = namespace
       @dimensions = []
       @templates  = []
+      @watches    = []
       @body       = body
     end
 
@@ -22,6 +23,7 @@ module MetriCollect
         metric.unit       = @unit
         metric.timestamp  = @timestamp
         metric.dimensions = @dimensions
+        metric.watches    = @watches.map { |w| w.call(metric) }
       end
     end
 
@@ -50,6 +52,10 @@ module MetriCollect
 
     def timestamp(timestamp)
       @timestamp = timestamp
+    end
+
+    def watch(&block)
+      @watches << WatchDefinition.new(&block)
     end
   end
 end

@@ -16,12 +16,20 @@ class MetriCollectTest < Minitest::Test
     end
   end
 
+  class Application
+    class << self
+      def errors; 0 end
+    end
+  end
+
   def setup
     @publisher = MetriCollect::Publisher[:test]
+    @watcher   = MetriCollect::Watcher[:test]
 
     MetriCollect.configure do |config|
       config.application("CareerArc") do |application|
         application.publishers :test
+        application.watchers :test
 
         application.metrics do
           namespace "Application" do
@@ -121,12 +129,28 @@ class MetriCollectTest < Minitest::Test
           end
         end
       end
+
+      config.application("Watchers") do |application|
+        application.watchers :test
+
+        application.metrics do
+          metric "Errors" do
+            value Application.errors
+            watch do
+              name "Error Rate Too High"
+              description "Triggered when the Application error rate is too high"
+              condition { sum.over_period(3600) > 10 }
+            end
+          end
+        end
+      end
     end
 
     @careerarc   = MetriCollect["CareerArc"]
     @careerbeam  = MetriCollect["CareerBeam"]
     @namespace   = MetriCollect["Namespace"]
     @template    = MetriCollect["Template"]
+    @watchers    = MetriCollect["Watchers"]
   end
 
   def test_metrics
@@ -265,6 +289,67 @@ class MetriCollectTest < Minitest::Test
     assert_equal metric.value, 1
     assert_equal metric.timestamp, timestamp
     assert_equal metric.unit, :count
+  end
+
+  def test_watchers
+    Application.stub :errors, 1 do
+      errors = @watchers.metrics.to_a[0]
+      watch = errors.watches[0]
+      now = Time.now.to_i
+
+      if now % 3600 >= 3598
+        puts "Sleeping to make sure we don't cross a time boundary..."
+        sleep 5
+      end
+
+      results = 10.times.map do
+        @watcher.watch(errors)
+        @watcher.status(watch.name)
+      end
+
+      assert_equal results.count {|r| r != :ok}, 0
+
+      @watcher.watch(errors)
+
+      assert_equal @watcher.status(watch.name), :triggered
+    end
+  end
+
+  def test_direct_watchers
+    timestamp = Time.now
+    watch_name = "Queued Distributions Alarm"
+    options   = {
+      namespace: "CareerArc/Counters",
+      name: "ade:dispatcher:distribution:queued",
+      value: 1,
+      timestamp: timestamp,
+      unit: :count,
+      watches: [{
+        name: watch_name,
+        description: "Triggered when there are too many queued distributions",
+        evaluations: 1,
+        statistic: :sum,
+        period: 3600,
+        comparison: :>,
+        threshold: 10
+      }]
+    }
+
+    if timestamp.to_i % 3600 >= 3598
+      puts "Sleeping to make sure we don't cross a time boundary..."
+      sleep 5
+    end
+
+    results = 10.times.map do
+      @watchers.publish(options)
+      @watcher.status(watch_name)
+    end
+
+    assert_equal results.count {|r| r != :ok}, 0
+
+    @watchers.publish(options)
+
+    assert_equal @watcher.status(watch_name), :triggered
   end
 
   def test_cloud_watch_publisher_grouping

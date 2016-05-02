@@ -8,6 +8,7 @@ module MetriCollect
       @name = name
       @metric_prefix = nil
       @publishers = []
+      @watchers = []
     end
 
     def prefix_metrics_with(prefix)
@@ -25,6 +26,20 @@ module MetriCollect
         Publisher[key_or_publisher] || raise(ArgumentError, "publisher doesn't exist: #{key_or_publisher}")
       else
         key_or_publisher
+      end
+    end
+
+    def watchers(*keys_or_watchers)
+      keys_or_watchers.each do |key_or_watcher|
+        add_watcher(key_or_watcher)
+      end
+    end
+
+    def add_watcher(key_or_watcher)
+      @watchers << if key_or_watcher.is_a?(Symbol)
+        Watcher[key_or_watcher] || raise(ArgumentError, "watcher doesn't exist: #{key_or_watcher}")
+      else
+        key_or_watcher
       end
     end
 
@@ -48,6 +63,10 @@ module MetriCollect
 
       @publishers.each do |publisher|
         publisher.publish(*metrics)
+      end
+
+      @watchers.each do |watcher|
+        watcher.watch(*metrics)
       end
     end
 
