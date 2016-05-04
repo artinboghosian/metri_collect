@@ -4,7 +4,6 @@ module MetriCollect
                   :statistic, :period, :comparison, :threshold
 
     def ==(other)
-      puts "Comparing #{self} to #{other}"
       self.class == other.class && name == other.name && description == other.description && evaluations == other.evaluations &&
         statistic == other.statistic && period == other.period && comparison == other.comparison && threshold == other.threshold
     end

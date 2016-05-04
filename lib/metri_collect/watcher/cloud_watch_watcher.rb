@@ -28,16 +28,10 @@ module MetriCollect
       # for us, so all we have to do is make sure that
       # the appropriate alarms exist...
       def watch(*metrics)
-        puts "CloudWatchWatcher"
         metrics.each do |metric|
-          puts "  Metric: #{metric}"
           metric.watches.each do |watch|
             prefixed_watch = watch.dup
             prefixed_watch.name = watch_name(watch)
-
-            puts "    Watch: #{watch}"
-            puts "      Exists?:  #{watch_exists?(prefixed_watch)}"
-            puts "      Updated?: #{watch_updated?(prefixed_watch)}"
 
             if watch_updated?(prefixed_watch)
               put_watch_as_alarm(prefixed_watch, metric)

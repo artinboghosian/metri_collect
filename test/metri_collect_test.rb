@@ -274,21 +274,40 @@ class MetriCollectTest < Minitest::Test
 
     metric = @publisher.published.last
 
-    assert_equal metric.namespace, "CareerArc/development/Counters"
-    assert_equal metric.name, "aae:heartbeat"
-    assert_equal metric.value, 1
-    assert_equal metric.timestamp, timestamp
-    assert_equal metric.unit, :count
+    assert_equal "CareerArc/development/Counters", metric.namespace
+    assert_equal "aae:heartbeat", metric.name
+    assert_equal 1, metric.value
+    assert_equal timestamp, metric.timestamp
+    assert_equal :count, metric.unit
+
+    options.merge!(template: :instance)
 
     MetriCollect["CareerArc"].publish(options)
 
     metric = @publisher.published.last
 
-    assert_equal metric.namespace, "CareerArc/Counters"
-    assert_equal metric.name, "aae:heartbeat"
-    assert_equal metric.value, 1
-    assert_equal metric.timestamp, timestamp
-    assert_equal metric.unit, :count
+    assert_equal "CareerArc/Counters", metric.namespace
+    assert_equal "aae:heartbeat", metric.name
+    assert_equal 1, metric.value
+    assert_equal timestamp, metric.timestamp
+    assert_equal :count, metric.unit
+    assert_equal "InstanceId", metric.dimensions.first[:name]
+    assert_equal "i-123456", metric.dimensions.first[:value]
+
+    MetriCollect["CareerArc"].publish do
+      name "Direct Block Count"
+      namespace "CareerArc/Counters"
+      value 10, unit: :count
+      timestamp timestamp
+    end
+
+    metric = @publisher.published.last
+
+    assert_equal "CareerArc/Counters", metric.namespace
+    assert_equal "Direct Block Count", metric.name
+    assert_equal 10, metric.value
+    assert_equal timestamp, metric.timestamp
+    assert_equal :count, metric.unit
   end
 
   def test_watchers
@@ -298,7 +317,7 @@ class MetriCollectTest < Minitest::Test
       now = Time.now.to_i
 
       if now % 3600 >= 3598
-        puts "Sleeping to make sure we don't cross a time boundary..."
+        puts "Sleeping 5 seconds to make sure we don't cross a time boundary..."
         sleep 5
       end
 
@@ -307,11 +326,11 @@ class MetriCollectTest < Minitest::Test
         @watcher.status(watch.name)
       end
 
-      assert_equal results.count {|r| r != :ok}, 0
+      assert_equal 0, results.count {|r| r != :ok}
 
       @watcher.watch(errors)
 
-      assert_equal @watcher.status(watch.name), :triggered
+      assert_equal :triggered, @watcher.status(watch.name)
     end
   end
 
@@ -336,7 +355,7 @@ class MetriCollectTest < Minitest::Test
     }
 
     if timestamp.to_i % 3600 >= 3598
-      puts "Sleeping to make sure we don't cross a time boundary..."
+      puts "Sleeping 5 seconds to make sure we don't cross a time boundary..."
       sleep 5
     end
 
@@ -345,11 +364,11 @@ class MetriCollectTest < Minitest::Test
       @watcher.status(watch_name)
     end
 
-    assert_equal results.count {|r| r != :ok}, 0
+    assert_equal 0, results.count {|r| r != :ok}
 
     @watchers.publish(options)
 
-    assert_equal @watcher.status(watch_name), :triggered
+    assert_equal :triggered, @watcher.status(watch_name)
   end
 
   def test_cloud_watch_publisher_grouping

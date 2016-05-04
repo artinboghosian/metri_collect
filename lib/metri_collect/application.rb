@@ -58,7 +58,8 @@ module MetriCollect
       metrics.ids
     end
 
-    def publish(*metrics_or_ids)
+    def publish(*metrics_or_ids, &block)
+      metrics_or_ids << MetricDefinition.new(nil, nil, &block).call if block_given?
       metrics = convert_to_metric(*metrics_or_ids)
 
       @publishers.each do |publisher|
@@ -94,7 +95,7 @@ module MetriCollect
         when String
           metrics[metric_or_id]
         else
-          metric = Metric.from_object(metric_or_id)
+          metric = MetricDefinition.build_metric(metric_or_id)
           metric.namespace = metric.namespace.split("/").insert(1, metric_prefix).join("/") if metric_prefix
           metric
         end
