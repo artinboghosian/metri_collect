@@ -8,6 +8,7 @@ module MetriCollect
       @name = name
       @metric_prefix = nil
       @publishers = []
+      @watchers = []
     end
 
     def prefix_metrics_with(prefix)
@@ -28,6 +29,20 @@ module MetriCollect
       end
     end
 
+    def watchers(*keys_or_watchers)
+      keys_or_watchers.each do |key_or_watcher|
+        add_watcher(key_or_watcher)
+      end
+    end
+
+    def add_watcher(key_or_watcher)
+      @watchers << if key_or_watcher.is_a?(Symbol)
+        Watcher[key_or_watcher] || raise(ArgumentError, "watcher doesn't exist: #{key_or_watcher}")
+      else
+        key_or_watcher
+      end
+    end
+
     def metrics(&block)
       raise RuntimeError, "metrics have not been configured" unless block_given? || @metrics
 
@@ -43,11 +58,16 @@ module MetriCollect
       metrics.ids
     end
 
-    def publish(*metrics_or_ids)
+    def publish(*metrics_or_ids, &block)
+      metrics_or_ids << MetricDefinition.new(nil, nil, &block).call if block_given?
       metrics = convert_to_metric(*metrics_or_ids)
 
       @publishers.each do |publisher|
         publisher.publish(*metrics)
+      end
+
+      @watchers.each do |watcher|
+        watcher.watch(*metrics)
       end
     end
 
@@ -75,7 +95,7 @@ module MetriCollect
         when String
           metrics[metric_or_id]
         else
-          metric = Metric.from_object(metric_or_id)
+          metric = MetricDefinition.build_metric(metric_or_id)
           metric.namespace = metric.namespace.split("/").insert(1, metric_prefix).join("/") if metric_prefix
           metric
         end
