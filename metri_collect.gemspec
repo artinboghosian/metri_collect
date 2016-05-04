@@ -9,9 +9,10 @@ Gem::Specification.new do |spec|
   spec.authors       = ["Artin Boghosian"]
   spec.email         = ["aboghosian@tweetmyjobs.com"]
 
-  spec.summary       = %q{A framework for publishing application metrics}
   spec.homepage      = "https://github.com/CareerArcGroup/metri_collect"
   spec.license       = "MIT"
+  spec.summary       = %q{A framework for publishing application metrics}
+  spec.description   = %q{MetriCollect is a Ruby framework that provides a common interface with which to collect, publish, and monitor application metrics.}
 
   # Prevent pushing this gem to RubyGems.org by setting 'allowed_push_host', or
   # delete this section to allow pushing this gem to any host.
@@ -31,5 +32,5 @@ Gem::Specification.new do |spec|
 
   spec.add_development_dependency "bundler", "~> 1.10"
   spec.add_development_dependency "rake", "~> 10.0"
-  spec.add_development_dependency "minitest"
+  spec.add_development_dependency "minitest", "~> 5"
 end

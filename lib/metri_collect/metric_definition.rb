@@ -1,3 +1,5 @@
+require 'json'
+
 module MetriCollect
   class MetricDefinition
     def initialize(name, namespace, &body)
@@ -5,6 +7,7 @@ module MetriCollect
       @namespace  = namespace
       @dimensions = []
       @templates  = []
+      @watches    = []
       @body       = body
     end
 
@@ -22,6 +25,7 @@ module MetriCollect
         metric.unit       = @unit
         metric.timestamp  = @timestamp
         metric.dimensions = @dimensions
+        metric.watches    = @watches.map { |w| w.call(metric) }
       end
     end
 
@@ -50,6 +54,33 @@ module MetriCollect
 
     def timestamp(timestamp)
       @timestamp = timestamp
+    end
+
+    def watch(&block)
+      @watches << WatchDefinition.new(&block)
+    end
+
+    def self.build_metric(obj)
+      return obj if obj.nil? || obj.is_a?(Metric)
+
+      if obj.is_a?(Hash)
+        obj_hash = obj.dup
+        name = obj_hash.delete(:name)
+        namespace = obj_hash.delete(:namespace)
+        watches = obj_hash.delete(:watches) || []
+
+        metric_definition = MetricDefinition.new(name, namespace) do
+          obj_hash.each do |attribute,value|
+            send(attribute, value) if respond_to?(attribute)
+          end
+        end
+
+        metric = metric_definition.call
+        metric.watches = watches.map {|w| Watch.from_object(w)}
+        metric
+      else
+        raise ArgumentError, "Unable to convert #{obj.class} into metric"
+      end
     end
   end
 end

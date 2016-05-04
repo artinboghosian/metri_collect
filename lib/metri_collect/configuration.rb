@@ -16,6 +16,10 @@ module MetriCollect
       Publisher.add_publisher(key, publisher)
     end
 
+    def add_watcher(key, watcher)
+      Watcher.add_watcher(key, watcher)
+    end
+
     def default_application
       applications.values.first
     end
