@@ -1,26 +1,9 @@
 require 'test_helper'
 
 class MetriCollectTest < Minitest::Test
-  class User
-    class << self
-      def count; 0 end
-      def active_count; 0 end
-    end
-  end
-
-  class System
-    class << self
-      def load_average; 0 end
-      def used_memory; 0 end
-      def free_memory; 0 end
-    end
-  end
-
-  class Application
-    class << self
-      def errors; 0 end
-    end
-  end
+  User = OpenStruct.new(count: 0, active_count: 0)
+  System = OpenStruct.new(load_average: 0, used_memory: 0, free_memory: 0)
+  Application = OpenStruct.new(errors: 0)
 
   def setup
     @publisher = MetriCollect::Publisher[:test]
@@ -144,6 +127,28 @@ class MetriCollectTest < Minitest::Test
           end
         end
       end
+
+      config.application("Roles") do |application|
+        application.metrics do
+          namespace "System" do
+            metric "LoadAverage" do
+              value rand(1..5)
+            end
+          end
+
+          namespace "Redis", roles: [:cron] do
+            metric "CommandsPerSecond" do
+              value rand(1..1000)
+            end
+          end
+
+          namespace "Unicorn", roles: [:web] do
+            metric "Requests" do
+              value rand(1..256)
+            end
+          end
+        end
+      end
     end
 
     @careerarc   = MetriCollect["CareerArc"]
@@ -151,113 +156,67 @@ class MetriCollectTest < Minitest::Test
     @namespace   = MetriCollect["Namespace"]
     @template    = MetriCollect["Template"]
     @watchers    = MetriCollect["Watchers"]
+    @roles       = MetriCollect["Roles"]
   end
 
   def test_metrics
-    User.stub :count, 50 do
-      User.stub :active_count, 25 do
-        total, active, workers, active_requests, queued_requests = @careerarc.metrics.to_a
+    User.count = 50
+    User.active_count = 25
 
-        assert_equal 50, total.value
-        assert_equal "Total", total.name
-        assert_equal "CareerArc/Application/Users", total.namespace
-        assert_equal :count, total.unit
+    total, active, workers, active_requests, queued_requests = @careerarc.metrics.to_a
 
-        assert_equal 25, active.value
-        assert_equal "Active", active.name
-        assert_equal "CareerArc/Application/Users", active.namespace
-        assert_equal :count, active.unit
+    assert_metric_equal total, value: 50, name: "Total", namespace: "CareerArc/Application/Users", unit: :count
+    assert_metric_equal active, value: 25, name: "Active", namespace: "CareerArc/Application/Users", unit: :count
+    assert_metric_equal workers, name: "WorkerCount", namespace: "CareerArc/Unicorn", unit: :count
+    assert_metric_equal active_requests, name: "Requests", namespace: "CareerArc/Unicorn", dimensions: { "Type" => "Active" }
+    assert_metric_equal queued_requests, name: "Requests", namespace: "CareerArc/Unicorn", dimensions: { "Type" => "Queued" }
 
-        assert_equal "Requests", active_requests.name
-        assert_equal "CareerArc/Unicorn", active_requests.namespace
-        assert_equal "Type", active_requests.dimensions.first[:name]
-        assert_equal "Active", active_requests.dimensions.first[:value]
+    refute_nil active_requests.timestamp
+    refute_nil queued_requests.timestamp
 
-        assert_equal "Requests", queued_requests.name
-        assert_equal "CareerArc/Unicorn", queued_requests.namespace
-        assert_equal "Type", queued_requests.dimensions.first[:name]
-        assert_equal "Queued", queued_requests.dimensions.first[:value]
+    assert_equal active_requests.timestamp.to_i, queued_requests.timestamp.to_i
 
-        refute_nil active_requests.timestamp
-        refute_nil queued_requests.timestamp
+    System.load_average = 0.75
+    System.used_memory = 3000
+    System.free_memory = 2000
 
-        assert_equal active_requests.timestamp.to_i, queued_requests.timestamp.to_i
-      end
+    Time.stub :now, Time.at(0) do
+      load_average, used, free = @careerbeam.metrics.to_a
+
+      assert_metric_equal load_average, value: 0.75, name: "LoadAverage", namespace: "CareerBeam/System", unit: :count
+      assert_metric_equal used, value: 3000, name: "Used", namespace: "CareerBeam/System/Memory", unit: :megabytes
+      assert_metric_equal free, value: 2000, name: "FreeMemory", namespace: "CareerBeam/System/FreeMemory", unit: :megabytes,
+        timestamp: Time.at(0), dimensions: { "Type" => "Free", "SystemId" => "Workstation-1" }
     end
 
-    System.stub :load_average, 0.75 do
-      System.stub :used_memory, 3000 do
-        System.stub :free_memory, 2000 do
-          Time.stub :now, Time.at(0) do
-            load_average, used, free = @careerbeam.metrics.to_a
+    System.load_average = 0.25
 
-            assert_equal 0.75, load_average.value
-            assert_equal "LoadAverage", load_average.name
-            assert_equal "CareerBeam/System", load_average.namespace
-            assert_equal :count, load_average.unit
+    load_average, _ = @namespace.metrics.to_a
 
-            assert_equal 3000, used.value
-            assert_equal "Used", used.name
-            assert_equal "CareerBeam/System/Memory", used.namespace
-            assert_equal :megabytes, used.unit
-
-            assert_equal 2000, free.value
-            assert_equal "FreeMemory", free.name
-            assert_equal "CareerBeam/System/FreeMemory", free.namespace
-            assert_equal :megabytes, free.unit
-            assert_equal Time.at(0), free.timestamp
-            assert_equal [{ name: "Type", value: "Free" }, { name: "SystemId", value: "Workstation-1" }], free.dimensions
-          end
-        end
-      end
-    end
-
-    System.stub :load_average, 0.25 do
-      load_average, _ = @namespace.metrics.to_a
-
-      assert_equal 0.25, load_average.value
-      assert_equal "LoadAverage", load_average.name
-      assert_equal "Namespace/development/System", load_average.namespace
-      assert_equal :count, load_average.unit
-    end
+    assert_metric_equal load_average, value: 0.25, name: "LoadAverage", namespace: "Namespace/development/System", unit: :count
 
     instance, instance_group, _ = @template.metrics.to_a
 
-    assert_equal "Instance", instance.name
-    assert_equal "Template", instance.namespace
-    assert_equal 25, instance.value
-    assert_equal "Type", instance.dimensions.first[:name]
-    assert_equal "Specific", instance.dimensions.first[:value]
-    assert_equal "InstanceId", instance.dimensions.last[:name]
-    assert_equal "i-123456", instance.dimensions.last[:value]
-
-    assert_equal "InstanceGroup", instance_group.name
-    assert_equal "Template", instance_group.namespace
-    assert_equal 10, instance_group.value
-    assert_equal "Type", instance_group.dimensions.first[:name]
-    assert_equal "Group", instance_group.dimensions.first[:value]
-    assert_equal "InstanceId", instance_group.dimensions.last[:name]
-    assert_equal "i-123456", instance_group.dimensions.last[:value]
+    assert_metric_equal instance, name: "Instance", namespace: "Template", value: 25, dimensions: { "Type" => "Specific", "InstanceId" => "i-123456" }
+    assert_metric_equal instance_group, name: "InstanceGroup", namespace: "Template", value: 10, dimensions: { "Type" => "Group", "InstanceId" => "i-123456" }
   end
 
   def test_publish
-    User.stub :count, 10 do
-      User.stub :active_count, 5 do
-        total, active = @careerarc.metrics.to_a
+    User.count = 10
+    User.active_count = 5
+    total, active = @careerarc.metrics.to_a
 
-        @careerarc.publish(total)
+    @careerarc.publish(total)
 
-        assert @publisher.published?(total)
-        refute @publisher.published?(active)
+    assert @publisher.published?(total)
+    refute @publisher.published?(active)
 
-        @publisher.clear
+    @publisher.clear
 
-        @careerarc.publish_all
+    @careerarc.publish_all
 
-        assert @publisher.published?(total)
-        assert @publisher.published?(active)
-      end
-    end
+    assert @publisher.published?(total)
+    assert @publisher.published?(active)
   end
 
   def test_direct_publish
@@ -274,11 +233,7 @@ class MetriCollectTest < Minitest::Test
 
     metric = @publisher.published.last
 
-    assert_equal "CareerArc/development/Counters", metric.namespace
-    assert_equal "aae:heartbeat", metric.name
-    assert_equal 1, metric.value
-    assert_equal timestamp, metric.timestamp
-    assert_equal :count, metric.unit
+    assert_metric_equal metric, namespace: "CareerArc/development/Counters", name: "aae:heartbeat", value: 1, timestamp: timestamp, unit: :count
 
     options.merge!(template: :instance)
 
@@ -286,13 +241,7 @@ class MetriCollectTest < Minitest::Test
 
     metric = @publisher.published.last
 
-    assert_equal "CareerArc/Counters", metric.namespace
-    assert_equal "aae:heartbeat", metric.name
-    assert_equal 1, metric.value
-    assert_equal timestamp, metric.timestamp
-    assert_equal :count, metric.unit
-    assert_equal "InstanceId", metric.dimensions.first[:name]
-    assert_equal "i-123456", metric.dimensions.first[:value]
+    assert_metric_equal metric, namespace: "CareerArc/Counters", name: "aae:heartbeat", value: 1, timestamp: timestamp, unit: :count, dimensions: { "InstanceId" => "i-123456" }
 
     MetriCollect["CareerArc"].publish do
       name "Direct Block Count"
@@ -303,35 +252,30 @@ class MetriCollectTest < Minitest::Test
 
     metric = @publisher.published.last
 
-    assert_equal "CareerArc/Counters", metric.namespace
-    assert_equal "Direct Block Count", metric.name
-    assert_equal 10, metric.value
-    assert_equal timestamp, metric.timestamp
-    assert_equal :count, metric.unit
+    assert_metric_equal metric, namespace: "CareerArc/Counters", name: "Direct Block Count", value: 10, timestamp: timestamp, unit: :count
   end
 
   def test_watchers
-    Application.stub :errors, 1 do
-      errors = @watchers.metrics.to_a[0]
-      watch = errors.watches[0]
-      now = Time.now.to_i
+    Application.errors = 1
+    errors = @watchers.metrics.to_a[0]
+    watch = errors.watches[0]
+    now = Time.now.to_i
 
-      if now % 3600 >= 3598
-        puts "Sleeping 5 seconds to make sure we don't cross a time boundary..."
-        sleep 5
-      end
-
-      results = 10.times.map do
-        @watcher.watch(errors)
-        @watcher.status(watch.name)
-      end
-
-      assert_equal 0, results.count {|r| r != :ok}
-
-      @watcher.watch(errors)
-
-      assert_equal :triggered, @watcher.status(watch.name)
+    if now % 3600 >= 3598
+      puts "Sleeping 5 seconds to make sure we don't cross a time boundary..."
+      sleep 5
     end
+
+    results = 10.times.map do
+      @watcher.watch(errors)
+      @watcher.status(watch.name)
+    end
+
+    assert_equal 0, results.count {|r| r != :ok}
+
+    @watcher.watch(errors)
+
+    assert_equal :triggered, @watcher.status(watch.name)
   end
 
   def test_direct_watchers
@@ -371,6 +315,24 @@ class MetriCollectTest < Minitest::Test
     assert_equal :triggered, @watcher.status(watch_name)
   end
 
+  def test_roles
+    cron = @roles.metric_ids([:cron])
+    web  = @roles.metric_ids([:web])
+    all  = @roles.metric_ids
+
+    assert_includes cron, "Roles/Redis/CommandsPerSecond"
+    assert_includes cron, "Roles/System/LoadAverage"
+    refute_includes cron, "Roles/Unicorn/Requests"
+
+    assert_includes web, "Roles/Unicorn/Requests"
+    assert_includes web, "Roles/System/LoadAverage"
+    refute_includes web, "Roles/Redis/CommandsPerSecond"
+
+    assert_includes all, "Roles/System/LoadAverage"
+    refute_includes all, "Roles/Unicorn/Requests"
+    refute_includes all, "Roles/Redis/CommandsPerSecond"
+  end
+
   def test_cloud_watch_publisher_grouping
     metric    = { name: "Metric" }
     publisher = MetriCollect::Publisher::CloudWatchPublisher.new(region: "us-east")
@@ -382,5 +344,20 @@ class MetriCollectTest < Minitest::Test
   def test_runner
     runner = MetriCollect::Runner.new("CareerArc", frequency: 5, iterations: 3)
     runner.start
+  end
+
+  private
+
+  def assert_metric_equal(metric, attributes = {}, &block)
+    attributes.each do |attribute, value|
+      if attribute == :dimensions
+        value.each_with_index do |(dimension_name, dimension_value), index|
+          assert_equal dimension_name, metric.dimensions[index][:name]
+          assert_equal dimension_value, metric.dimensions[index][:value]
+        end
+      else
+        assert_equal value, metric.send(attribute)
+      end
+    end
   end
 end
