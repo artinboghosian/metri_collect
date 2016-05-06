@@ -54,8 +54,8 @@ module MetriCollect
       end
     end
 
-    def metric_ids
-      metrics.ids
+    def metric_ids(roles = [])
+      metrics.ids(roles)
     end
 
     def publish(*metrics_or_ids, &block)

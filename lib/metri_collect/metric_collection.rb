@@ -3,13 +3,16 @@ module MetriCollect
     include Enumerable
 
     def initialize(namespace)
-      @namespaces         = [namespace]
-      @metric_definitions = {}
+      @namespaces  = [namespace]
+      @roles       = []
+      @groups      = {}
     end
 
-    def namespace(namespace, &block)
+    def namespace(namespace, options = {}, &block)
       @namespaces.push(namespace)
+      @roles = options[:roles] if options[:roles]
       yield
+      @roles.pop
       @namespaces.pop
     end
 
@@ -19,7 +22,7 @@ module MetriCollect
       if metric_defined?(id)
         raise ArgumentError, "Metric '#{id}' has already been defined"
       else
-        @metric_definitions[id] = MetricDefinitionGroup.new(name, current_namespace, &block)
+        @groups[id] = MetricDefinitionGroup.new(name, current_namespace, roles: current_roles, &block)
       end
     end
 
@@ -28,16 +31,16 @@ module MetriCollect
     end
 
     def each(&block)
-      @metric_definitions.values.flat_map(&:call).each(&block)
+      @groups.values.flat_map(&:call).each(&block)
     end
 
-    def ids
-      @metric_definitions.keys
+    def ids(roles)
+      @groups.select { |id, group| group.match_roles?(roles) }.keys
     end
 
     def [](id)
       raise ArgumentError, "Metric '#{id}' has not been defined" unless metric_defined?(id)
-      @metric_definitions[id].call
+      @groups[id].call
     end
 
     private
@@ -46,8 +49,12 @@ module MetriCollect
       @namespaces.join("/")
     end
 
+    def current_roles
+      @roles.dup
+    end
+
     def metric_defined?(id)
-      @metric_definitions.key?(id)
+      @groups.key?(id)
     end
   end
 end
