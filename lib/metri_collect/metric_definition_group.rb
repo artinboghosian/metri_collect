@@ -1,8 +1,9 @@
 module MetriCollect
   class MetricDefinitionGroup
-    def initialize(name, namespace, &body)
+    def initialize(name, namespace, options = {}, &body)
       @name = name
       @namespace = namespace
+      @options = options
       @body = body
     end
 
@@ -15,9 +16,19 @@ module MetriCollect
       @definitions.each { |definition| definition.timestamp(time) }.map(&:call)
     end
 
+    def match_roles?(roles_to_match)
+      roles.empty? || (roles & roles_to_match).any?
+    end
+
     def metric(&block)
       @definitions ||= []
       @definitions << MetricDefinition.new(@name, @namespace, &block)
+    end
+
+    private
+
+    def roles
+      @options[:roles]
     end
   end
 end
