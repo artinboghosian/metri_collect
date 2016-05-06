@@ -43,8 +43,8 @@ module MetriCollect
       options[:frequency] || (2 * 60)
     end
 
-    def filter
-      options[:filter]
+    def roles
+      options.fetch(:roles, [])
     end
 
     def logger
@@ -117,11 +117,14 @@ module MetriCollect
       # call the before-fork callback (if defined)...
       @before_fork.call unless @before_fork.nil?
 
-      # create workers for each metric...
-      application.metric_ids.each do |metric_id|
+      if roles.any?
+        log "Running #{roles.join(", ")} metrics."
+      else
+        log "Running non role specific metrics"
+      end
 
-        # skip this metric if we are filtering it...
-        next if filter && metric_id !~ filter
+      # create workers for each metric...
+      application.metric_ids(roles).each do |metric_id|
 
         # fork, and store the process
         metrics[metric_id] = fork do
