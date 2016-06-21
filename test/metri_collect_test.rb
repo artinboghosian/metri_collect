@@ -333,14 +333,6 @@ class MetriCollectTest < Minitest::Test
     refute_includes all, "Roles/Redis/CommandsPerSecond"
   end
 
-  def test_cloud_watch_publisher_grouping
-    metric    = { name: "Metric" }
-    publisher = MetriCollect::Publisher::CloudWatchPublisher.new(region: "us-east")
-    group     = publisher.send(:array_to_groups, [metric], 20)
-
-    assert_equal group, [[metric]]
-  end
-
   def test_runner
     runner = MetriCollect::Runner.new("CareerArc", frequency: 5, iterations: 3)
     runner.start
