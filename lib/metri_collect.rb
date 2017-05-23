@@ -10,6 +10,7 @@ require "metri_collect/metric_definition"
 require "metri_collect/metric_definition_group"
 require "metri_collect/metric_template"
 require "metri_collect/metric"
+require "metri_collect/worker"
 require "metri_collect/runner"
 
 # publishers

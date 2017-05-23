@@ -28,7 +28,7 @@ module MetriCollect
       return unless running?
 
       log("Stopping Runner...")
-      stop_children
+      @running = false
     end
 
     def running?
@@ -53,6 +53,14 @@ module MetriCollect
 
     def iterations
       options[:iterations]
+    end
+
+    def initial_worker_count
+      options.fetch(:initial_worker_count, 5)
+    end
+
+    def max_worker_count
+      options.fetch(:max_worker_count, 20)
     end
 
     # ===================================================================
@@ -98,9 +106,6 @@ module MetriCollect
       return if running?
 
       @running = true
-      @run_time = Time.now
-      metrics = {}
-      count = 0
 
       # call this thread 'master'...
       rename_process!('master')
@@ -111,9 +116,6 @@ module MetriCollect
       # initialize signaling...
       init_signaling
 
-      # initialize IPC...
-      init_ipc(true)
-
       # call the before-fork callback (if defined)...
       @before_fork.call unless @before_fork.nil?
 
@@ -123,96 +125,152 @@ module MetriCollect
         log "Running non role specific metrics"
       end
 
-      # create workers for each metric...
-      application.metric_ids(roles).each do |metric_id|
+      # get all of the metric ids we should process...
+      metric_ids = application.metric_ids(roles)
 
-        # fork, and store the process
-        metrics[metric_id] = fork do
-          run_worker!(metric_id, count)
-        end
-
-        count += 1
-
+      5.times do
+        metric_ids += application.metric_ids(roles)
       end
 
-      # wait for the threads to exit. this should
-      # only happen when we catch a stop or restart signal...
-      Process.waitall
+      # create workers...
+      add_workers(initial_worker_count)
 
-      @running = false
+      # start all the workers...
+      start_workers
 
-      # read the signal message to see what to do...
-      message = read_exit_message
-      log("App Metrics has been stopped with message '#{message}'")
-    end
-
-    def run_worker!(metric_id, id)
-
-      # initialize the worker (after-fork, IPC init, etc)...
-      init_worker(id)
-
-      next_run = @run_time
-      last_run = nil
-      last_duration = nil
+      # initialize run tracking variables...
+      next_run_at = Time.now
+      last_run_at = nil
+      finished_at = nil
       iteration_count = 0
 
-      loop do
+      # keep queueing work for each cycle...
+      while running?
+        current_time = Time.now
 
-        # sleep while waiting for next run...
-        while Time.now < next_run
-
-          if received_exit_message?
-            log("Terminating this thread because an exit message was received from the parent")
-            exit
-          end
-
-          # make sure we're not in a weird state...
-          # if the parent pid is 1 (INIT) then we've
-          # been abandoned, so we should exit.
-          parent_pid = Process.ppid
-          parent_ok = (parent_pid != 1)
-
-          unless parent_ok
-            log("Terminating this thread because it was abandoned (parent PID: #{parent_pid})")
-            exit
-          end
-
+        # wait for the next run and be sure to
+        # record the queue completion time as well...
+        if current_time < next_run_at
+          finished_at = current_time if queue.empty? && finished_at.nil?
+          sleep 1; next
         end
 
-        log("Running metric: #{metric_id} (Last run: #{last_run.nil? ? 'never' : last_run.to_s}, Duration: #{last_duration || 'n/a'})")
-
-        run_time = next_run
-        next_run = run_time + frequency
-        last_run = run_time
-
-        begin
-          application.publish(metric_id)
-          last_duration = (Time.now - last_run)
-        rescue Exception => ex
-          log("Child processing metric #{metric_id} caught exception:\n#{ex.message}\n#{ex.backtrace.join("\n")}")
+        # record performance
+        if queue.empty?
+          log("Queue empty, finished_at: #{finished_at}")
+          record_performance((finished_at - last_run_at).to_f / frequency) if finished_at
+        else
+          log("Queue NOT empty, #{queue.length} remaining...")
+          record_performance(metric_ids.count.to_f / (metric_ids.count - queue.size))
+          queue.clear
         end
+
+        # display performance data...
+        log("Beginning cycle; Performance: #{performance_history} (avg: #{average_performance})")
+
+        # adjust the worker pool size if needed...
+        adjust_worker_count!
+
+        # queue the additional work...
+        metric_ids.each do |metric_id|
+          queue.push(metric_id)
+        end
+
+        # update the run times...
+        last_run_at = next_run_at
+        next_run_at = last_run_at + frequency
+        finished_at = nil
 
         # if a maximum number of iterations has been specified,
         # and we have reached that number of iterations, then exit...
         if iterations != nil && (iteration_count += 1) >= iterations
-          log("Terminating this thread because it has reached the desired iteration count of #{iterations}")
-          exit
+          log("Stopping runner because it has reached the desired iteration count of #{iterations}")
+          break
+        end
+
+      end
+
+      # stop all workers...
+      stop_workers
+
+      # read the signal message to see what to do...
+      log("Runner has been stopped")
+    end
+
+    # ===================================================================
+    # worker management
+    # ===================================================================
+
+    def workers
+      @workers ||= []
+    end
+
+    def start_workers
+      workers.each { |w| w.start }
+    end
+
+    def stop_workers
+      workers.each { |w| w.stop }
+    end
+
+    def add_workers(count, start=false)
+      count.times do |i|
+        workers << MetriCollect::Worker.new(application, queue, [process_name, @application.name, "worker[#{workers.count}]"].join(" ")).tap do |worker|
+          worker.start if start
         end
       end
     end
 
-    def init_worker(id)
-      # initialize IPC...
-      init_ipc(false)
+    def remove_workers(count)
+      target = [workers.count - count, 1].max
 
-      # trap the term signal and exit when we receive it
-      Signal.trap("TERM") { exit }
+      while workers.count > target
+        workers.pop.stop
+      end
+    end
 
-      # rename this process as a worker
-      rename_process!("worker[#{id}]")
+    def adjust_worker_count!
+      average = average_performance
 
-      # call the after-fork callback (if defined)...
-      @after_fork.call unless @after_fork.nil?
+      return workers.count if average.nil?
+
+      target_count = if average < 0.50 && workers.count > initial_worker_count
+        log "Performance is great, average #{average} => removing workers"
+        workers.count - 1
+      elsif average > 0.80 && workers.count < max_worker_count
+        optimal = (workers.count * (average / 0.70)).to_i
+        log "Performance is bad, average: #{average}, workers: #{workers.count} => optimal workers = #{optimal}"
+        [optimal, max_worker_count].min
+      end
+
+      target_count ||= workers.count
+      diff = [target_count - workers.count, -1].max
+
+      return if diff == 0
+
+      log "Adjusting worker count by #{diff} (new count will be #{workers.count + diff})..."
+
+      diff > 0 ? add_workers(diff, true) : remove_workers(1)
+    end
+
+    # ===================================================================
+    # performance monitoring
+    # ===================================================================
+
+    def record_performance(performance_data)
+      performance_history << performance_data.round(2)
+
+      if performance_history.length > 5
+        performance_history.shift
+      end
+    end
+
+    def average_performance
+      performance_history.any? ? (performance_history.inject(0) { |sum, x| sum + x }.to_f / performance_history.count) : nil
+    end
+
+    def performance_history
+      @performance_history ||= []
     end
 
     # ===================================================================
@@ -229,31 +287,8 @@ module MetriCollect
       end
     end
 
-    def init_ipc(master)
-      if master
-        # create a pipe for ipc...
-        @read_pipe, @write_pipe = IO.pipe
-      else
-        # child threads don't write...
-        @write_pipe.close
-      end
-    end
-
-    def stop_children
-      write_exit_message
-    end
-
-    def received_exit_message?(timeout=1)
-      rs, ws, = IO.select([@read_pipe], nil, nil, timeout)
-      rs && rs[0]
-    end
-
-    def read_exit_message
-      @read_pipe.read_nonblock(4) rescue '(none)'
-    end
-
-    def write_exit_message
-      @write_pipe.write("EXIT")
+    def queue
+      @queue ||= Queue.new
     end
 
     # ===================================================================

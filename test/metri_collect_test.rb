@@ -334,7 +334,7 @@ class MetriCollectTest < Minitest::Test
   end
 
   def test_runner
-    runner = MetriCollect::Runner.new("CareerArc", frequency: 5, iterations: 3)
+    runner = MetriCollect::Runner.new("CareerArc", frequency: 5, iterations: 20)
     runner.start
   end
 
