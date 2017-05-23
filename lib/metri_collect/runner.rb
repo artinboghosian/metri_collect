@@ -215,7 +215,8 @@ module MetriCollect
 
     def add_workers(count, start=false)
       count.times do |i|
-        workers << MetriCollect::Worker.new(application, queue, [process_name, @application.name, "worker[#{workers.count}]"].join(" ")).tap do |worker|
+        worker_name = [process_name, @application.name, "worker[#{workers.count}]"].join(" ")
+        workers << MetriCollect::Worker.new(application, queue, worker_name, &@after_fork).tap do |worker|
           worker.start if start
         end
       end
