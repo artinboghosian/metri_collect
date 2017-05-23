@@ -63,6 +63,10 @@ module MetriCollect
       options.fetch(:max_worker_count, 20)
     end
 
+    def min_worker_count
+      options.fetch(:min_worker_count, 2)
+    end
+
     # ===================================================================
     # forking callbacks
     # ===================================================================
@@ -127,10 +131,6 @@ module MetriCollect
 
       # get all of the metric ids we should process...
       metric_ids = application.metric_ids(roles)
-
-      5.times do
-        metric_ids += application.metric_ids(roles)
-      end
 
       # create workers...
       add_workers(initial_worker_count)
@@ -235,7 +235,7 @@ module MetriCollect
 
       return workers.count if average.nil?
 
-      target_count = if average < 0.50 && workers.count > initial_worker_count
+      target_count = if average < 0.50 && workers.count > min_worker_count
         log "Performance is great, average #{average} => removing workers"
         workers.count - 1
       elsif average > 0.80 && workers.count < max_worker_count
