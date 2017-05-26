@@ -12,6 +12,7 @@ module MetriCollect
       @ready   = false
 
       @after_fork = block
+      @current_item = nil
     end
 
     def start
@@ -65,6 +66,10 @@ module MetriCollect
         # wait for the child process to exit...
         Process.waitpid(@child_pid)
       end
+    end
+
+    def current_item
+      @current_item
     end
 
     # ===============================================================
@@ -141,6 +146,7 @@ module MetriCollect
 
         begin
           log "Child processing metric '#{work_item}'..."
+          sleep(rand * 5 + 5)
           application.publish(work_item)
         rescue Exception => ex
           log "Child processing metric '#{work_item}' caught exception:\n#{ex.message}\n#{ex.backtrace.join("\n")}"
@@ -195,6 +201,7 @@ module MetriCollect
     def check_requests(timeout=1)
       if work_item = read_message(@parent_read)
         @ready = true
+        @current_item = nil
         work_item
       end
     end
@@ -205,6 +212,7 @@ module MetriCollect
     def dispatch_work(work_item)
       return unless ready?
       @ready = false
+      @current_item = work_item.to_s
       write_message(@parent_write, work_item.to_s)
     end
 
@@ -249,7 +257,7 @@ module MetriCollect
     # ===============================================================
 
     def log(message)
-      puts "[#{parent? ? 'P' : 'C'}:#{Process.pid}] #{message}"
+      puts "#{Time.now.strftime("%m/%d/%Y %I:%M%p")} [#{Process.pid}] (Worker) >>> #{message}"
     end
   end
 end
