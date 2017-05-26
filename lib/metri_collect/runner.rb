@@ -11,6 +11,9 @@ module MetriCollect
 
       @options = options
       @running = false
+
+      @before_fork = nil
+      @after_fork  = nil
     end
 
     # ===================================================================
@@ -155,14 +158,20 @@ module MetriCollect
           sleep 1; next
         end
 
+        # get the set of metric ids that are either
+        # still in the queue or currently being processed
+        # by workers so that we can avoid requeueing them...
+        queue_items = drain_queue
+        queue_items += workers.map { |w| w.current_item }.compact
+        working_set = Set.new(queue_items.uniq)
+
         # record performance
-        if queue.empty?
+        if queue_items.length == 0
           log("Queue empty, finished_at: #{finished_at}")
           record_performance((finished_at - last_run_at).to_f / frequency) if finished_at
         else
-          log("Queue NOT empty, #{queue.length} remaining...")
-          record_performance(metric_ids.count.to_f / (metric_ids.count - queue.size))
-          queue.clear
+          log("Queue NOT empty, #{queue_items.length} remaining... [#{metric_ids.count}, #{queue_items.length}]")
+          record_performance(metric_ids.count.to_f / (metric_ids.count - queue_items.length + 1))
         end
 
         # display performance data...
@@ -173,7 +182,11 @@ module MetriCollect
 
         # queue the additional work...
         metric_ids.each do |metric_id|
-          queue.push(metric_id)
+          if working_set.include?(metric_id)
+            log("Will not requeue unprocessed metric '#{metric_id}'")
+          else
+            queue.push(metric_id)
+          end
         end
 
         # update the run times...
@@ -232,14 +245,15 @@ module MetriCollect
 
     def adjust_worker_count!
       average = average_performance
+      last    = performance_history.last
 
-      return workers.count if average.nil?
+      return workers.count if last.nil?
 
-      target_count = if average < 0.50 && workers.count > min_worker_count
+      target_count = if average && average < 0.40 && workers.count > min_worker_count
         log "Performance is great, average #{average} => removing workers"
         workers.count - 1
-      elsif average > 0.80 && workers.count < max_worker_count
-        optimal = (workers.count * (average / 0.70)).to_i
+      elsif (last >= 0.90 || (average && average > 0.80)) && workers.count < max_worker_count
+        optimal = (workers.count * ([average, last].compact.max / 0.70)).to_i
         log "Performance is bad, average: #{average}, workers: #{workers.count} => optimal workers = #{optimal}"
         [optimal, max_worker_count].min
       end
@@ -267,7 +281,7 @@ module MetriCollect
     end
 
     def average_performance
-      performance_history.any? ? (performance_history.inject(0) { |sum, x| sum + x }.to_f / performance_history.count) : nil
+      performance_history.count == 5 ? (performance_history.inject(0) { |sum, x| sum + x }.to_f / performance_history.count) : nil
     end
 
     def performance_history
@@ -290,6 +304,14 @@ module MetriCollect
 
     def queue
       @queue ||= Queue.new
+    end
+
+    def drain_queue
+      items = []
+      while (item = queue.pop(true) rescue nil)
+        items << item
+      end
+      items
     end
 
     # ===================================================================
