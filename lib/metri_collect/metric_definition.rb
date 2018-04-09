@@ -2,9 +2,12 @@ require 'json'
 
 module MetriCollect
   class MetricDefinition
-    def initialize(name, namespace, &body)
+    attr_reader :options
+
+    def initialize(name, namespace, options={}, &body)
       @name       = name
       @namespace  = namespace
+      @options    = options
       @dimensions = []
       @templates  = []
       @watches    = []
@@ -25,7 +28,15 @@ module MetriCollect
         metric.unit       = @unit
         metric.timestamp  = @timestamp
         metric.dimensions = @dimensions
-        metric.watches    = @watches.map { |w| w.call(metric) }
+
+        metric.external   = external?
+        metric.roles      = roles
+
+        metric.watches    = @watches.map do |watch_body|
+          WatchDefinition.new(@name, &watch_body).tap do |watch|
+            watch.metric @name, @namespace, @dimensions
+          end.call
+        end
       end
     end
 
@@ -42,6 +53,8 @@ module MetriCollect
     end
 
     def value(value, unit: :count)
+      raise RuntimeError, "Cannot call #value on external metric" if external?
+
       @value = value
       @unit  = unit
     end
@@ -57,7 +70,15 @@ module MetriCollect
     end
 
     def watch(&block)
-      @watches << WatchDefinition.new(&block)
+      @watches << block
+    end
+
+    def external?
+      options.fetch(:external, false)
+    end
+
+    def roles
+      options.fetch(:roles, nil)
     end
 
     def self.build_metric(obj)

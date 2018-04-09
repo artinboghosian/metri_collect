@@ -9,6 +9,9 @@ module MetriCollect
         @metrics = {}
         @watches = {}
         @results = {}
+
+        @min_timestamp = nil
+        @max_timestamp = nil
       end
 
       def watch(*metrics)
@@ -48,7 +51,7 @@ module MetriCollect
           range_end = Time.at(next_period)
           next_period = range_start.to_i
 
-          items = metrics(metric_name).select {|m| m.timestamp >= range_start && m.timestamp < range_end}.map(&:value)
+          items = metrics(metric_name).select {|m| m.timestamp >= range_start && m.timestamp < range_end}.map(&:value).compact
           stat = if items.count > 0
             case watch.statistic
               when items.count == 0; nil

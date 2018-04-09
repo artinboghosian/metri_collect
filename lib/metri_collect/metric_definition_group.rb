@@ -16,13 +16,9 @@ module MetriCollect
       @definitions.each { |definition| definition.timestamp(time) }.map(&:call)
     end
 
-    def match_roles?(roles_to_match)
-      roles.empty? || (roles & roles_to_match).any?
-    end
-
     def metric(&block)
       @definitions ||= []
-      @definitions << MetricDefinition.new(@name, @namespace, &block)
+      @definitions << MetricDefinition.new(@name, @namespace, @options, &block)
     end
 
     private
