@@ -53,6 +53,11 @@ module MetriCollect
     end
 
     def value(value, unit: :count)
+      if value == :external
+        options[:external] = true
+        return
+      end
+
       raise RuntimeError, "Cannot call #value on external metric" if external?
 
       @value = value

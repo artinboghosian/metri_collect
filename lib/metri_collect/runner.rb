@@ -132,14 +132,18 @@ module MetriCollect
         log "Running non role specific metrics"
       end
 
-      # watch all metrics once at startup...
-      application.watch_all
-
       # get all of the metric ids we should process;
-      # filter to given roles if necessary, and don't bother
-      # processing external metrics...
-      metric_ids = application.metrics.for_roles(*roles)
-      metric_ids = metric_ids.select { |m| !m.external? }
+      # filter to given roles if necessary
+      metrics = application.metrics.for_roles(*roles)
+
+      # watch all metrics once at startup...
+      application.watch(*metrics)
+
+      # no need to publish external metrics
+      metrics = metric_ids.select { |m| !m.external? }
+
+      # get ids (easier to pass to child processes)...
+      metric_ids = metrics.map { |m| m.id }
 
       # create workers...
       add_workers(initial_worker_count)

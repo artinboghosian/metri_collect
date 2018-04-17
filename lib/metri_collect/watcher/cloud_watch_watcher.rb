@@ -57,6 +57,10 @@ module MetriCollect
         @actions ||= options.fetch(:actions, {})
       end
 
+      def default_urgency
+        options[:default_urgency]
+      end
+
       protected
 
       def watch_name(watch)
@@ -73,7 +77,8 @@ module MetriCollect
 
       def watches
         @watches ||= begin
-          client.describe_alarms(alarm_name_prefix: prefix).inject({}) do |memo, response|
+          opts = prefix ? { alarm_name_prefix: prefix } : {}
+          client.describe_alarms(opts).inject({}) do |memo, response|
             response.metric_alarms.each do |alarm|
               memo[alarm.alarm_name] = map_alarm_to_watch(alarm)
             end
@@ -153,7 +158,7 @@ module MetriCollect
       end
 
       def actions_to_urgency(alarm_actions)
-        actions.select { |urgency, action| alarm_actions.include?(action) }.keys.first
+        actions.select { |urgency, action| alarm_actions.include?(action) }.keys.first || default_urgency
       end
 
       def client
