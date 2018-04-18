@@ -1,5 +1,7 @@
 module MetriCollect
   class MetricDefinitionGroup
+    attr_reader :name, :namespace, :options
+
     def initialize(name, namespace, options = {}, &body)
       @name = name
       @namespace = namespace
@@ -13,7 +15,11 @@ module MetriCollect
 
       instance_eval(&@body)
 
-      @definitions.each { |definition| definition.timestamp(time) }.map(&:call)
+      begin
+        @definitions.each { |definition| definition.timestamp(time) }.map(&:call)
+      rescue
+        []
+      end
     end
 
     def metric(&block)
@@ -21,10 +27,12 @@ module MetriCollect
       @definitions << MetricDefinition.new(@name, @namespace, @options, &block)
     end
 
-    private
-
     def roles
       @options[:roles]
+    end
+
+    def external?
+      @options[:external]
     end
   end
 end

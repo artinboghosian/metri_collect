@@ -123,27 +123,19 @@ module MetriCollect
       # initialize signaling...
       init_signaling
 
+      # get all metric ids for applicable roles and apply watches...
+      # this is run before the call to the before_fork callback
+      # in case that call has side-effects that would prevent the
+      # watches from working...
+      metric_ids = application.metrics.ids(roles: roles)
+      application.watch(*metric_ids)
+
       # call the before-fork callback (if defined)...
       @before_fork.call unless @before_fork.nil?
 
-      if roles.any?
-        log "Running #{roles.join(", ")} metrics."
-      else
-        log "Running non role specific metrics"
-      end
-
-      # get all of the metric ids we should process;
-      # filter to given roles if necessary
-      metrics = application.metrics.for_roles(*roles)
-
-      # watch all metrics once at startup...
-      application.watch(*metrics)
-
-      # no need to publish external metrics
-      metrics = metric_ids.select { |m| !m.external? }
-
-      # get ids (easier to pass to child processes)...
-      metric_ids = metrics.map { |m| m.id }
+      # now get only internal metric ids for publishing
+      # since we have no need to call publish on external metrics...
+      metric_ids = application.metrics.ids(roles: roles, include_external: false)
 
       # create workers...
       add_workers(initial_worker_count)

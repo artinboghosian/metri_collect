@@ -47,12 +47,16 @@ module MetriCollect
       @groups.values.flat_map(&:call).each(&block)
     end
 
-    def for_roles(*roles)
-      select { |m| m.match_roles?(roles) }
-    end
+    def ids(options={})
+      roles = options.fetch(:roles, nil)
+      include_external = options.fetch(:include_external, true)
 
-    def ids(roles)
-      @groups.select { |id, group| group.match_roles?(roles) }.keys
+      groups = @groups.select do |id, group|
+        (roles.empty? || (roles & group.roles).any?) &&
+        (include_external || !group.external?)
+      end
+
+      groups.keys
     end
 
     def [](id)
