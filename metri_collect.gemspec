@@ -6,8 +6,8 @@ require 'metri_collect/version'
 Gem::Specification.new do |spec|
   spec.name          = "metri_collect"
   spec.version       = MetriCollect::VERSION
-  spec.authors       = ["Artin Boghosian"]
-  spec.email         = ["aboghosian@tweetmyjobs.com"]
+  spec.authors       = ["Artin Boghosian", "Stephen Roos"]
+  spec.email         = ["aboghosian@careerarc.com", "sroos@careerarc.com"]
 
   spec.homepage      = "https://github.com/CareerArcGroup/metri_collect"
   spec.license       = "MIT"

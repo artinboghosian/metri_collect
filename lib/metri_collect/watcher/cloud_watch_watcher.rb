@@ -2,8 +2,11 @@ require 'aws-sdk'
 
 module MetriCollect
   module Watcher
-
     class CloudWatchWatcher
+      attr_reader :options
+
+      CLIENT_OPTS = [:region, :credentials]
+
       STATISTIC_MAP = {
         average: "Average",
         sum: "Sum",
@@ -19,9 +22,15 @@ module MetriCollect
         :<= => "LessThanOrEqualToThreshold"
       }
 
+      MISSING_MAP = {
+        ok: "notBreaching",
+        bad: "breaching",
+        ignore: "ignore",
+        missing: "missing"
+      }
+
       def initialize(options={})
-        @prefix = options.delete(:alarm_prefix) || "MetriCollect - "
-        @client = Aws::CloudWatch::Client.new(options)
+        @options = options
       end
 
       # CloudWatch takes care of watching the metrics
@@ -34,16 +43,28 @@ module MetriCollect
             prefixed_watch.name = watch_name(watch)
 
             if watch_updated?(prefixed_watch)
-              put_watch_as_alarm(prefixed_watch, metric)
+              put_watch_as_alarm(prefixed_watch)
             end
           end
         end
       end
 
+      def prefix
+        @prefix ||= options.fetch(:alarm_prefix, "MetriCollect - ")
+      end
+
+      def actions
+        @actions ||= options.fetch(:actions, {})
+      end
+
+      def default_urgency
+        options[:default_urgency]
+      end
+
       protected
 
       def watch_name(watch)
-        (@prefix && @prefix.length > 0) ? "#{@prefix}#{watch.name}" : watch.name
+        (prefix && prefix.length > 0) ? "#{prefix}#{watch.name}" : watch.name
       end
 
       def watch_exists?(watch)
@@ -56,27 +77,34 @@ module MetriCollect
 
       def watches
         @watches ||= begin
-          @client.describe_alarms(alarm_name_prefix: @prefix).inject({}) do |hash, response|
+          opts = prefix ? { alarm_name_prefix: prefix } : {}
+          client.describe_alarms(opts).inject({}) do |memo, response|
             response.metric_alarms.each do |alarm|
-              hash[alarm.alarm_name] = map_alarm_to_watch(alarm)
+              memo[alarm.alarm_name] = map_alarm_to_watch(alarm)
             end
-            hash
+            memo
           end
         end
       end
 
-      def put_watch_as_alarm(watch, metric)
-        response = @client.put_metric_alarm({
+      def put_watch_as_alarm(watch)
+        alarm_actions = actions.key?(watch.urgency) ? Array(actions[watch.urgency]) : nil
+
+        response = client.put_metric_alarm({
           alarm_name: watch.name,
           alarm_description: watch.description,
-          metric_name: metric.name,
-          namespace: metric.namespace,
-          dimensions: metric.dimensions,
+          metric_name: watch.metric_name,
+          namespace: watch.namespace,
+          dimensions: watch.dimensions,
           period: watch.period,
           evaluation_periods: watch.evaluations,
           threshold: watch.threshold,
           statistic: statistic_symbol_to_string(watch.statistic),
-          comparison_operator: comparison_symbol_to_string(watch.comparison)
+          comparison_operator: comparison_symbol_to_string(watch.comparison),
+          alarm_actions: alarm_actions,
+          ok_actions: alarm_actions,
+          insufficient_data_actions: alarm_actions,
+          treat_missing_data: missing_symbol_to_string(watch.missing)
         })
 
         if response.successful?
@@ -87,15 +115,19 @@ module MetriCollect
       end
 
       def map_alarm_to_watch(alarm)
-        Watch.from_object({
+        Watch.from_object(
           name: alarm.alarm_name,
           description: alarm.alarm_description,
+          metric_name: alarm.metric_name,
+          namespace: alarm.namespace,
           evaluations: alarm.evaluation_periods,
           period: alarm.period,
           threshold: alarm.threshold,
           statistic: statistic_string_to_symbol(alarm.statistic),
-          comparison: comparison_string_to_symbol(alarm.comparison_operator)
-        })
+          comparison: comparison_string_to_symbol(alarm.comparison_operator),
+          urgency: actions_to_urgency(alarm.alarm_actions),
+          missing: missing_string_to_symbol(alarm.treat_missing_data)
+        )
       end
 
       def statistic_string_to_symbol(statistic)
@@ -114,6 +146,23 @@ module MetriCollect
 
       def comparison_symbol_to_string(comparison)
         COMPARISON_MAP[comparison] || raise(ArgumentError, "Unable to convert '#{comparison}' into watch comparison")
+      end
+
+      def missing_string_to_symbol(missing)
+        @missing_reverse_map ||= MISSING_MAP.invert
+        @missing_reverse_map.fetch(missing, :missing)
+      end
+
+      def missing_symbol_to_string(missing)
+        MISSING_MAP.fetch(missing, "missing")
+      end
+
+      def actions_to_urgency(alarm_actions)
+        actions.select { |urgency, action| alarm_actions.include?(action) }.keys.first || default_urgency
+      end
+
+      def client
+        @client ||= Aws::CloudWatch::Client.new(options.select { |k,v| CLIENT_OPTS.include?(k) })
       end
     end
   end

@@ -1,6 +1,6 @@
 module MetriCollect
   class Application
-    attr_reader :name
+    attr_reader :name, :metric_prefix
 
     def initialize(name)
       raise ArgumentError, "Application name must not be empty" if name.nil? || name.length < 1
@@ -54,10 +54,6 @@ module MetriCollect
       end
     end
 
-    def metric_ids(roles = [])
-      metrics.ids(roles)
-    end
-
     def publish(*metrics_or_ids, &block)
       metrics_or_ids << MetricDefinition.new(nil, nil, &block).call if block_given?
       metrics = convert_to_metric(*metrics_or_ids)
@@ -65,15 +61,26 @@ module MetriCollect
       @publishers.each do |publisher|
         publisher.publish(*metrics)
       end
+    end
+
+    def publish_all
+      metrics.each do |metric|
+        publish(metric)
+      end
+    end
+
+    def watch(*metrics_or_ids, &block)
+      metrics_or_ids << MetricDefinition.new(nil, nil, &block).call if block_given?
+      metrics = convert_to_metric(*metrics_or_ids)
 
       @watchers.each do |watcher|
         watcher.watch(*metrics)
       end
     end
 
-    def publish_all
+    def watch_all
       metrics.each do |metric|
-        publish(metric)
+        watch(metric)
       end
     end
 
