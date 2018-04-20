@@ -4,7 +4,8 @@ class MetricDefinitionTest < Minitest::Test
   def setup
     @name = "Test"
     @namespace = "Metric/Definition"
-    @group = MetriCollect::MetricDefinitionGroup.new(@name, @namespace) do
+    @application = MetriCollect::Application.new("TestApp")
+    @group = MetriCollect::MetricDefinitionGroup.new(@application, @namespace, @name) do
       metric do
         value "Hello"
       end

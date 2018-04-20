@@ -51,11 +51,11 @@ module MetriCollect
     end
 
     def ids(options={})
-      roles = options.fetch(:roles, nil)
+      roles = options.fetch(:roles, [])
       include_external = options.fetch(:include_external, true)
 
       groups = @groups.select do |id, group|
-        (roles.empty? || (roles & group.roles).any?) &&
+        (group.roles.empty? || (roles & group.roles).any?) &&
         (include_external || !group.external?)
       end
 

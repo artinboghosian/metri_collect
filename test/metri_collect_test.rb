@@ -255,70 +255,20 @@ class MetriCollectTest < Minitest::Test
     assert_metric_equal metric, namespace: "CareerArc/Counters", name: "Direct Block Count", value: 10, timestamp: timestamp, unit: :count
   end
 
-  def test_watchers
-    Application.errors = 1
-    errors = @watchers.metrics.to_a[0]
-    watch = errors.watches[0]
-    now = Time.now.to_i
+  def test_watch
+    assert_equal 1, @watchers.watches.count
 
-    if now % 3600 >= 3598
-      puts "Sleeping 5 seconds to make sure we don't cross a time boundary..."
-      sleep 5
-    end
+    watch = @watchers.watches.first
 
-    results = 10.times.map do
-      @watcher.watch(errors)
-      @watcher.status(watch.name)
-    end
+    @watchers.watch_all
 
-    assert_equal 0, results.count {|r| r != :ok}
-
-    @watcher.watch(errors)
-
-    assert_equal :triggered, @watcher.status(watch.name)
-  end
-
-  def test_direct_watchers
-    timestamp = Time.now
-    watch_name = "Queued Distributions Alarm"
-    options   = {
-      namespace: "CareerArc/Counters",
-      name: "ade:dispatcher:distribution:queued",
-      value: 1,
-      timestamp: timestamp,
-      unit: :count,
-      watches: [{
-        name: watch_name,
-        description: "Triggered when there are too many queued distributions",
-        evaluations: 1,
-        statistic: :sum,
-        period: 3600,
-        comparison: :>,
-        threshold: 10
-      }]
-    }
-
-    if timestamp.to_i % 3600 >= 3598
-      puts "Sleeping 5 seconds to make sure we don't cross a time boundary..."
-      sleep 5
-    end
-
-    results = 10.times.map do
-      @watchers.publish(options)
-      @watcher.status(watch_name)
-    end
-
-    assert_equal 0, results.count {|r| r != :ok}
-
-    @watchers.publish(options)
-
-    assert_equal :triggered, @watcher.status(watch_name)
+    assert_equal true, @watcher.watched?(watch)
   end
 
   def test_roles
-    cron = @roles.metric_ids([:cron])
-    web  = @roles.metric_ids([:web])
-    all  = @roles.metric_ids
+    cron = @roles.metrics.ids(roles: [:cron])
+    web  = @roles.metrics.ids(roles: [:web])
+    all  = @roles.metrics.ids
 
     assert_includes cron, "Roles/Redis/CommandsPerSecond"
     assert_includes cron, "Roles/System/LoadAverage"

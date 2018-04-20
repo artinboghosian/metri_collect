@@ -55,7 +55,7 @@ module MetriCollect
     end
 
     def publish(*metrics_or_ids, &block)
-      metrics_or_ids << MetricDefinition.new(self, nil, nil, &block).call if block_given?
+      metrics_or_ids << MetricDefinition.new(self, nil, nil, &block).evaluate if block_given?
       metrics = convert_to_metric(*metrics_or_ids)
 
       @publishers.each do |publisher|

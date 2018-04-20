@@ -21,7 +21,7 @@ module MetriCollect
       end
 
       def watched?(watch)
-        watches.include?(watch)
+        watched.include?(watch)
       end
     end
 

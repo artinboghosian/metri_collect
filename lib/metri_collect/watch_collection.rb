@@ -14,12 +14,12 @@ module MetriCollect
     end
 
     def [](id)
-      raise ArgumentError, "Watch '#{id}' has not been defined" unless watch_defined?(id)
       @watches[id]
     end
 
     def <<(watch)
       id = Metric.id(watch.metric_name, watch.namespace)
+
       @watches[id] ||= []
       @watches[id] << watch
     end

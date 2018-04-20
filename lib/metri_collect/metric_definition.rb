@@ -2,10 +2,9 @@ require 'json'
 
 module MetriCollect
   class MetricDefinition
-    attr_reader :application, :options
+    attr_reader :application, :namespace, :name, :options
 
     def initialize(application, namespace, name, options={}, &body)
-      puts "METRICDEF: NS='#{namespace}', name='#{name}'"
       @application = application
       @namespace   = namespace
       @name        = name
@@ -19,6 +18,7 @@ module MetriCollect
       @dimensions = []
       instance_eval(&@body)
       @templates.each { |template| template.apply(self) }
+      self
     end
 
     def evaluate
@@ -78,7 +78,6 @@ module MetriCollect
     end
 
     def watch(name=@name, &block)
-      puts "WATCHDEF: NS='#{@namespace}', name='#{name}'"
       application.watches << WatchDefinition.new(name, @namespace, @name, &block).call
     end
 
@@ -104,7 +103,7 @@ module MetriCollect
           end
         end
 
-        metric_definition.call
+        metric_definition.evaluate
       else
         raise ArgumentError, "Unable to convert #{obj.class} into metric"
       end
