@@ -1,18 +1,20 @@
 module MetriCollect
   class WatchDefinition
-    def initialize(name, &body)
-      @name = name
-      @urgency = nil
-      @missing = :missing
+    def initialize(name, namespace, metric_name, dimensions={}, &body)
+      @name        = name
+      @namespace   = namespace
+      @metric_name = metric_name
+      @dimensions  = dimensions
+      @urgency     = nil
+      @missing     = :missing
       @evaluations = 1
-      @body = body
+      @body        = body
     end
 
     def call
       instance_eval(&@body)
 
       raise ArgumentError, "You must define a condition for watch '#{@name}'" if @condition.nil?
-      raise ArgumentError, "You must specify a metric for watch '#{@name}'" if (@metric_name.nil? || @namespace.nil?)
 
       Watch.new.tap do |watch|
         watch.name = @name
@@ -52,12 +54,6 @@ module MetriCollect
 
     def missing(missing)
       @missing = missing
-    end
-
-    def metric(name, namespace, dimensions={})
-      @metric_name = name
-      @namespace = namespace
-      @dimensions = dimensions
     end
 
     class Condition

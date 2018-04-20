@@ -1,38 +1,44 @@
 module MetriCollect
   class MetricDefinitionGroup
-    attr_reader :name, :namespace, :options
+    attr_reader :application, :namespace, :name, :options, :definitions
 
-    def initialize(name, namespace, options = {}, &body)
-      @name = name
-      @namespace = namespace
-      @options = options
-      @body = body
+    def initialize(application, namespace, name, options = {}, &body)
+      @application = application
+      @namespace   = namespace
+      @name        = name
+      @options     = options
+      @body        = body
+      @definitions = []
     end
 
-    def call
-      @definitions = []
-      time = Time.now
+    def call(evaluate=true)
+      time    = Time.now
+      message = evaluate ? :evaluate : :call
 
+      reset_definitions!
       instance_eval(&@body)
 
-      begin
-        @definitions.each { |definition| definition.timestamp(time) }.map(&:call)
-      rescue
-        []
-      end
+      definitions.each do |definition|
+        definition.timestamp(time)
+      end.map(&message)
     end
 
     def metric(&block)
-      @definitions ||= []
-      @definitions << MetricDefinition.new(@name, @namespace, @options, &block)
+      definitions << MetricDefinition.new(application, namespace, name, options, &block)
     end
 
     def roles
-      @options[:roles]
+      options[:roles]
     end
 
     def external?
-      @options[:external]
+      options[:external]
+    end
+
+    private
+
+    def reset_definitions!
+      definitions.clear
     end
   end
 end

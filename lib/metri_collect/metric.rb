@@ -1,7 +1,7 @@
 module MetriCollect
   class Metric
     attr_writer   :dimensions, :unit, :timestamp
-    attr_accessor :name, :namespace, :value, :watches, :roles, :external
+    attr_accessor :name, :namespace, :value, :roles, :external
 
     def id
       self.class.id(name, namespace)
@@ -51,7 +51,6 @@ module MetriCollect
         metric.dimensions = obj[:dimensions]
         metric.roles      = obj[:roles]
         metric.external   = obj[:external]
-        metric.watches    = obj.fetch(:watches, []).map {|w| Watch.from_object(w)}
       end if obj.is_a?(Hash)
       raise ArgumentError, "Unable to convert #{obj.class} into metric"
     end

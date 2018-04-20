@@ -2,7 +2,10 @@ module MetriCollect
   class MetricCollection
     include Enumerable
 
-    def initialize(namespace)
+    attr_reader :application
+
+    def initialize(application, namespace)
+      @application = application
       @namespaces  = [namespace]
       @roles       = []
       @groups      = {}
@@ -31,12 +34,12 @@ module MetriCollect
 
     def group(name, &block)
       id = Metric.id(name, current_namespace)
+      raise ArgumentError, "Metric '#{id}' has already been defined" if metric_defined?(id)
 
-      if metric_defined?(id)
-        raise ArgumentError, "Metric '#{id}' has already been defined"
-      else
-        @groups[id] = MetricDefinitionGroup.new(name, current_namespace, roles: current_roles, external: external?, &block)
-      end
+      definition = MetricDefinitionGroup.new(application, current_namespace, name, roles: current_roles, external: external?, &block)
+      definition.call(false)
+
+      @groups[id] = definition
     end
 
     def metric(name, &block)
