@@ -47,7 +47,7 @@ module MetriCollect
       raise RuntimeError, "metrics have not been configured" unless block_given? || @metrics
 
       if block_given?
-        @metrics = MetricCollection.new(namespace)
+        @metrics = MetricCollection.new(self, namespace)
         @metrics.instance_eval(&block)
       else
         @metrics
@@ -55,7 +55,7 @@ module MetriCollect
     end
 
     def publish(*metrics_or_ids, &block)
-      metrics_or_ids << MetricDefinition.new(nil, nil, &block).call if block_given?
+      metrics_or_ids << MetricDefinition.new(self, nil, nil, &block).evaluate if block_given?
       metrics = convert_to_metric(*metrics_or_ids)
 
       @publishers.each do |publisher|
@@ -69,18 +69,23 @@ module MetriCollect
       end
     end
 
-    def watch(*metrics_or_ids, &block)
-      metrics_or_ids << MetricDefinition.new(nil, nil, &block).call if block_given?
-      metrics = convert_to_metric(*metrics_or_ids)
+    def watches
+      @watches ||= WatchCollection.new(self)
+    end
+
+    def watch(*metric_ids_or_watches)
+      watchlist = metric_ids_or_watches.flat_map do |id_or_watch|
+        id_or_watch.is_a?(Watch) ? id_or_watch : watches[id_or_watch]
+      end
 
       @watchers.each do |watcher|
-        watcher.watch(*metrics)
+        watcher.watch(*watchlist)
       end
     end
 
     def watch_all
-      metrics.each do |metric|
-        watch(metric)
+      watches.each do |w|
+        watch(w)
       end
     end
 

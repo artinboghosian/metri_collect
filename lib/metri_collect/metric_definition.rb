@@ -2,29 +2,31 @@ require 'json'
 
 module MetriCollect
   class MetricDefinition
-    attr_reader :options
+    attr_reader :application, :namespace, :name, :options
 
-    def initialize(name, namespace, options={}, &body)
-      @name       = name
-      @namespace  = namespace
-      @options    = options
-      @dimensions = []
-      @templates  = []
-      @watches    = []
-      @body       = body
+    def initialize(application, namespace, name, options={}, &body)
+      @application = application
+      @namespace   = namespace
+      @name        = name
+      @options     = options
+      @dimensions  = []
+      @templates   = []
+      @body        = body
     end
 
     def call
       @dimensions = []
-
       instance_eval(&@body)
-
       @templates.each { |template| template.apply(self) }
+      self
+    end
+
+    def evaluate
+      call
 
       Metric.new.tap do |metric|
         metric.name       = @name
         metric.namespace  = @namespace
-        metric.value      = @value
         metric.unit       = @unit
         metric.timestamp  = @timestamp
         metric.dimensions = @dimensions
@@ -32,10 +34,10 @@ module MetriCollect
         metric.external   = external?
         metric.roles      = roles
 
-        metric.watches    = @watches.map do |watch_body|
-          WatchDefinition.new(@name, &watch_body).tap do |watch|
-            watch.metric @name, @namespace, @dimensions
-          end.call
+        metric.value = begin
+          @value.is_a?(Proc) ? @value.call : @value
+        rescue
+          nil
         end
       end
     end
@@ -52,15 +54,16 @@ module MetriCollect
       @namespace = namespace
     end
 
-    def value(value, unit: :count)
+    def value(value=nil, unit: :count, &block)
       if value == :external
         options[:external] = true
         return
       end
 
       raise RuntimeError, "Cannot call #value on external metric" if external?
+      raise RuntimeError, "Cannot provide a value argument AND a block" if value && block_given?
 
-      @value = value
+      @value = value || block
       @unit  = unit
     end
 
@@ -74,8 +77,8 @@ module MetriCollect
       @timestamp = timestamp
     end
 
-    def watch(&block)
-      @watches << block
+    def watch(name=@name, &block)
+      application.watches << WatchDefinition.new(name, @namespace, @name, &block).call
     end
 
     def external?
@@ -93,17 +96,14 @@ module MetriCollect
         obj_hash = obj.dup
         name = obj_hash.delete(:name)
         namespace = obj_hash.delete(:namespace)
-        watches = obj_hash.delete(:watches) || []
 
-        metric_definition = MetricDefinition.new(name, namespace) do
+        metric_definition = MetricDefinition.new(nil, namespace, name) do
           obj_hash.each do |attribute,value|
             send(attribute, value) if respond_to?(attribute)
           end
         end
 
-        metric = metric_definition.call
-        metric.watches = watches.map {|w| Watch.from_object(w)}
-        metric
+        metric_definition.evaluate
       else
         raise ArgumentError, "Unable to convert #{obj.class} into metric"
       end
