@@ -256,8 +256,11 @@ class MetriCollectTest < Minitest::Test
   end
 
   def test_watch
-    assert_equal 1, @watchers.watches.count
+    assert_equal 0, @watchers.watches.count
 
+    @watchers.publish_all
+
+    assert_equal 1, @watchers.watches.count
     watch = @watchers.watches.first
 
     @watchers.watch_all

@@ -10,7 +10,7 @@ module MetriCollect
     end
 
     def each(&block)
-      @watches.values.flatten.each(&block)
+      @watches.values.flat_map(&:values).each(&block)
     end
 
     def [](id)
@@ -18,16 +18,15 @@ module MetriCollect
     end
 
     def <<(watch)
-      id = Metric.id(watch.metric_name, watch.namespace)
+      metric_id = Metric.id(watch.metric_name, watch.namespace)
+      watch_id  = watch.name
 
-      @watches[id] ||= []
-      @watches[id] << watch
-    end
+      @watches[metric_id] ||= {}
 
-    private
-
-    def watch_defined?(id)
-      @watches.key?(id)
+      unless @watches[metric_id].key?(watch_id)
+        @watches[metric_id][watch_id] = watch
+        application.watch(watch)
+      end
     end
   end
 end
