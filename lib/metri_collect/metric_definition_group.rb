@@ -11,16 +11,15 @@ module MetriCollect
       @definitions = []
     end
 
-    def call(evaluate=true)
-      time    = Time.now
-      message = evaluate ? :evaluate : :call
+    def call
+      time = Time.now
 
       reset_definitions!
       instance_eval(&@body)
 
       definitions.each do |definition|
         definition.timestamp(time)
-      end.map(&message)
+      end.map(&:call)
     end
 
     def metric(&block)

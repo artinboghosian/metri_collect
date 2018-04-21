@@ -18,11 +18,6 @@ module MetriCollect
       @dimensions = []
       instance_eval(&@body)
       @templates.each { |template| template.apply(self) }
-      self
-    end
-
-    def evaluate
-      call
 
       Metric.new.tap do |metric|
         metric.name       = @name
@@ -103,7 +98,7 @@ module MetriCollect
           end
         end
 
-        metric_definition.evaluate
+        metric_definition.call
       else
         raise ArgumentError, "Unable to convert #{obj.class} into metric"
       end
