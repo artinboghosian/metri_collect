@@ -127,8 +127,9 @@ module MetriCollect
       # this is run before the call to the before_fork callback
       # in case that call has side-effects that would prevent the
       # watches from working...
-      metric_ids = application.metrics.ids(roles: roles)
-      application.watch(*metric_ids)
+      external_ids = application.metrics.ids(roles: roles, external_only: true)
+      application.publish(*external_ids)
+      application.watch(*external_ids)
 
       # call the before-fork callback (if defined)...
       @before_fork.call unless @before_fork.nil?
