@@ -177,7 +177,7 @@ module MetriCollect
         end
 
         # display performance data...
-        log("Beginning cycle; Performance: #{performance_history} (avg: #{average_performance})")
+        log("Beginning cycle; Performance: #{performance_history} (avg: #{average_performance || 'calculating'})")
 
         # adjust the worker pool size if needed...
         adjust_worker_count!

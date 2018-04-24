@@ -14,7 +14,7 @@ module MetriCollect
     end
 
     def [](id)
-      @watches[id]
+      @watches[id].values if @watches.key?(id)
     end
 
     def <<(watch)

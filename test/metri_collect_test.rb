@@ -125,6 +125,16 @@ class MetriCollectTest < Minitest::Test
               condition { sum.over_period(3600) > 10 }
             end
           end
+
+          namespace "External", external: true do
+            metric "Widgets" do
+              watch do
+                name "Too many widgets created"
+                description "Triggered when the widget creation rate is too high"
+                condition { sum.over_period(3600) > 10 }
+              end
+            end
+          end
         end
       end
 
@@ -256,16 +266,20 @@ class MetriCollectTest < Minitest::Test
   end
 
   def test_watch
-    assert_equal 0, @watchers.watches.count
+    assert_equal 1, @watchers.watches.count
 
     @watchers.publish_all
 
-    assert_equal 1, @watchers.watches.count
-    watch = @watchers.watches.first
+    assert_equal 2, @watchers.watches.count
+    watches = @watchers.watches.to_a
+
+    watch_int = watches[0]
+    watch_ext = watches[1]
 
     @watchers.watch_all
 
-    assert_equal true, @watcher.watched?(watch)
+    assert_equal true, @watcher.watched?(watch_int)
+    assert_equal true, @watcher.watched?(watch_ext)
   end
 
   def test_roles

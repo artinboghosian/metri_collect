@@ -76,7 +76,7 @@ module MetriCollect
     def watch(*metric_ids_or_watches)
       watchlist = metric_ids_or_watches.flat_map do |id_or_watch|
         id_or_watch.is_a?(Watch) ? id_or_watch : watches[id_or_watch]
-      end
+      end.compact
 
       @watchers.each do |watcher|
         watcher.watch(*watchlist)
