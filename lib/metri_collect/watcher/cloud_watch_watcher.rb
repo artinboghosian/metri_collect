@@ -86,11 +86,12 @@ module MetriCollect
       end
 
       def put_watch_as_alarm(watch)
-        alarm_actions = actions.key?(watch.urgency) ? Array(actions[watch.urgency]) : nil
+        urgency = watch.urgency || default_urgency
+        alarm_actions = actions.key?(urgency) ? Array(actions[urgency]) : nil
         attempts = 0
 
         begin
-          response = client.put_metric_alarm({
+          response = client.put_metric_alarm(
             alarm_name: watch.name,
             alarm_description: watch.description,
             metric_name: watch.metric_name,
@@ -105,7 +106,7 @@ module MetriCollect
             ok_actions: alarm_actions,
             insufficient_data_actions: alarm_actions,
             treat_missing_data: missing_symbol_to_string(watch.missing)
-          })
+          )
 
           if response.successful?
             @watches[watch.name] = watch
@@ -126,6 +127,7 @@ module MetriCollect
           description: alarm.alarm_description,
           metric_name: alarm.metric_name,
           namespace: alarm.namespace,
+          dimensions: alarm.dimensions.inject({}) { |m,d| m.update(d.name => d.value) },
           evaluations: alarm.evaluation_periods,
           period: alarm.period,
           threshold: alarm.threshold,
@@ -164,7 +166,7 @@ module MetriCollect
       end
 
       def actions_to_urgency(alarm_actions)
-        actions.select { |urgency, action| alarm_actions.include?(action) }.keys.first || default_urgency
+        actions.select { |urgency, action| alarm_actions.include?(action) }.keys.first
       end
 
       def client
