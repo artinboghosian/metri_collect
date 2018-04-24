@@ -34,13 +34,8 @@ module MetriCollect
 
     def group(name, &block)
       id = Metric.id(name, current_namespace)
-
       raise ArgumentError, "Metric '#{id}' has already been defined" if metric_defined?(id)
-
-      metric_def = MetricDefinitionGroup.new(application, current_namespace, name, roles: current_roles, external: external?, &block)
-      metric_def.call if external?
-
-      @groups[id] = metric_def
+      @groups[id] = MetricDefinitionGroup.new(application, current_namespace, name, roles: current_roles, external: external?, &block)
     end
 
     def metric(name, &block)
