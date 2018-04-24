@@ -87,6 +87,7 @@ module MetriCollect
 
       def put_watch_as_alarm(watch)
         alarm_actions = actions.key?(watch.urgency) ? Array(actions[watch.urgency]) : nil
+        attempts = 0
 
         begin
           response = client.put_metric_alarm({
@@ -112,7 +113,10 @@ module MetriCollect
 
           response.successful?
         rescue Aws::CloudWatch::Errors::Throttling
-          false
+          return false if attempts > 3
+          attempts += 1
+          sleep (attempts * 5)
+          retry
         end
       end
 
