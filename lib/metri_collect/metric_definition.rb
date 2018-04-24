@@ -75,7 +75,7 @@ module MetriCollect
     end
 
     def watch(name=@name, &block)
-      application.watches << WatchDefinition.new(name, @namespace, @name, &block).call
+      application.watches << WatchDefinition.new(name, @namespace, @name, @dimensions, &block).call
     end
 
     def external?

@@ -119,6 +119,8 @@ class MetriCollectTest < Minitest::Test
         application.metrics do
           metric "Errors" do
             value Application.errors
+            dimensions "Type" => "Application"
+
             watch do
               name "Error Rate Too High"
               description "Triggered when the Application error rate is too high"
