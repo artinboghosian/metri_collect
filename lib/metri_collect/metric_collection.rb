@@ -49,10 +49,12 @@ module MetriCollect
     def ids(options={})
       roles = options.fetch(:roles, [])
       include_external = options.fetch(:include_external, true)
+      external_only = options.fetch(:external_only, false)
 
       groups = @groups.select do |id, group|
         (group.roles.empty? || (roles & group.roles).any?) &&
-        (include_external || !group.external?)
+        (include_external || !group.external?) &&
+        (!external_only || group.external?)
       end
 
       groups.keys
