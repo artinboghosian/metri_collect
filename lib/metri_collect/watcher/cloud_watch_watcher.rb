@@ -88,28 +88,32 @@ module MetriCollect
       def put_watch_as_alarm(watch)
         alarm_actions = actions.key?(watch.urgency) ? Array(actions[watch.urgency]) : nil
 
-        response = client.put_metric_alarm({
-          alarm_name: watch.name,
-          alarm_description: watch.description,
-          metric_name: watch.metric_name,
-          namespace: watch.namespace,
-          dimensions: watch.dimensions,
-          period: watch.period,
-          evaluation_periods: watch.evaluations,
-          threshold: watch.threshold,
-          statistic: statistic_symbol_to_string(watch.statistic),
-          comparison_operator: comparison_symbol_to_string(watch.comparison),
-          alarm_actions: alarm_actions,
-          ok_actions: alarm_actions,
-          insufficient_data_actions: alarm_actions,
-          treat_missing_data: missing_symbol_to_string(watch.missing)
-        })
+        begin
+          response = client.put_metric_alarm({
+            alarm_name: watch.name,
+            alarm_description: watch.description,
+            metric_name: watch.metric_name,
+            namespace: watch.namespace,
+            dimensions: watch.dimensions,
+            period: watch.period,
+            evaluation_periods: watch.evaluations,
+            threshold: watch.threshold,
+            statistic: statistic_symbol_to_string(watch.statistic),
+            comparison_operator: comparison_symbol_to_string(watch.comparison),
+            alarm_actions: alarm_actions,
+            ok_actions: alarm_actions,
+            insufficient_data_actions: alarm_actions,
+            treat_missing_data: missing_symbol_to_string(watch.missing)
+          })
 
-        if response.successful?
-          @watches[watch.name] = watch
+          if response.successful?
+            @watches[watch.name] = watch
+          end
+
+          response.successful?
+        rescue Aws::CloudWatch::Errors::Throttling
+          false
         end
-
-        response.successful?
       end
 
       def map_alarm_to_watch(alarm)
