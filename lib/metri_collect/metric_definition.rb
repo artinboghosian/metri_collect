@@ -12,6 +12,8 @@ module MetriCollect
       @dimensions  = []
       @templates   = []
       @body        = body
+      @value       = nil
+      @unit        = nil
     end
 
     def call
