@@ -14,12 +14,17 @@ module MetriCollect
       @body        = body
       @value       = nil
       @unit        = nil
+      @watches     = {}
     end
 
     def call
       @dimensions = []
       instance_eval(&@body)
       @templates.each { |template| template.apply(self) }
+
+      @watches.each do |name, block|
+        application.watches << WatchDefinition.new(name, @namespace, @name, @dimensions, &block).call
+      end
 
       Metric.new.tap do |metric|
         metric.name       = @name
@@ -75,7 +80,7 @@ module MetriCollect
     end
 
     def watch(name=@name, &block)
-      application.watches << WatchDefinition.new(name, @namespace, @name, @dimensions, &block).call
+      @watches[name] = block
     end
 
     def external?
@@ -93,8 +98,11 @@ module MetriCollect
         obj_hash = obj.dup
         name = obj_hash.delete(:name)
         namespace = obj_hash.delete(:namespace)
+        obj_template = obj_hash.delete(:template)
 
         metric_definition = MetricDefinition.new(nil, namespace, name) do
+          template(obj_template) if obj_template
+
           obj_hash.each do |attribute,value|
             send(attribute, value) if respond_to?(attribute)
           end
