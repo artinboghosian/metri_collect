@@ -18,8 +18,9 @@ module MetriCollect
 
     def call
       @dimensions = []
-      instance_eval(&@body)
       @templates.each { |template| template.apply(self) }
+
+      instance_eval(&@body)
 
       Metric.new.tap do |metric|
         metric.name       = @name
