@@ -253,6 +253,8 @@ class MetriCollectTest < Minitest::Test
 
     metric = @publisher.published.last
 
+    puts "Metric is: #{metric.inspect}"
+
     assert_metric_equal metric, namespace: "CareerArc/Counters", name: "aae:heartbeat", value: 1, timestamp: timestamp, unit: :count, dimensions: { "InstanceId" => "i-123456" }
 
     MetriCollect["CareerArc"].publish do
@@ -312,9 +314,8 @@ class MetriCollectTest < Minitest::Test
   def assert_metric_equal(metric, attributes = {}, &block)
     attributes.each do |attribute, value|
       if attribute == :dimensions
-        value.each_with_index do |(dimension_name, dimension_value), index|
-          assert_equal dimension_name, metric.dimensions[index][:name]
-          assert_equal dimension_value, metric.dimensions[index][:value]
+        value.each do |dimension_name, dimension_value|
+          assert_equal true, (metric.dimensions.any? { |d| d[:name] == dimension_name && d[:value] == dimension_value })
         end
       else
         assert_equal value, metric.send(attribute)
