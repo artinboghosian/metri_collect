@@ -41,7 +41,7 @@ module MetriCollect
           prefixed_watch = watch.dup
           prefixed_watch.name = watch_name(watch)
 
-          if watch_updated?(prefixed_watch)
+          if watch_needs_update?(prefixed_watch)
             put_watch_as_alarm(prefixed_watch)
           end
         end
@@ -55,6 +55,10 @@ module MetriCollect
         @actions ||= options.fetch(:actions, {})
       end
 
+      def grace_period
+        @grace_period ||= options.fetch(:grace_period, 0)
+      end
+
       def default_urgency
         options[:default_urgency]
       end
@@ -65,12 +69,16 @@ module MetriCollect
         (prefix && prefix.length > 0) ? "#{prefix}#{watch.name}" : watch.name
       end
 
-      def watch_exists?(watch)
-        watches.key?(watch.name)
-      end
+      def watch_needs_update?(watch)
+        return true unless watches.key?(watch.name)
 
-      def watch_updated?(watch)
-        !watch_exists?(watch) || watches[watch.name] != watch
+        watch_info   = watches[watch.name]
+        stored_watch = watch_info[:watch]
+        updated_at   = watch_info[:updated_at]
+
+        return false if stored_watch == watch
+
+        Time.now > (updated_at + grace_period)
       end
 
       def watches
@@ -78,7 +86,10 @@ module MetriCollect
           opts = prefix ? { alarm_name_prefix: prefix } : {}
           client.describe_alarms(opts).inject({}) do |memo, response|
             response.metric_alarms.each do |alarm|
-              memo[alarm.alarm_name] = map_alarm_to_watch(alarm)
+              memo[alarm.alarm_name] = {
+                watch: map_alarm_to_watch(alarm),
+                updated_at: alarm.alarm_configuration_updated_timestamp
+              }
             end
             memo
           end
@@ -109,7 +120,10 @@ module MetriCollect
           )
 
           if response.successful?
-            @watches[watch.name] = watch
+            @watches[watch.name] = {
+              watch: watch,
+              updated_at: Time.now
+            }
           end
 
           response.successful?
