@@ -161,6 +161,72 @@ class MetriCollectTest < Minitest::Test
           end
         end
       end
+
+      config.application("Runner") do |application|
+        application.metrics do
+          namespace "System" do
+            group "DiskUtilization" do
+              devices_raw = `df | awk '{print \$1}' | grep '/dev/'`
+              devices     = devices_raw.split "\n"
+
+              devices.each do |device|
+                used_pct = `df | awk '{if (\$1 == "#{device}") print \$5}'`
+                used_pct.strip!
+                used_pct.gsub!(/%/,"")
+
+                puts "Disk utilization for device #{device} is #{used_pct}% as of #{Time.now}"
+
+                metric do
+                  template :instance
+                  value used_pct, unit: :percent
+                  dimensions "Device" => device
+
+                  watch do
+                    name "#{device} Disk Utilization"
+                    description "The disk space utilization is too high"
+                    evaluations 3
+                    condition { average.over_period(300) > 80 }
+                  end
+                end
+              end
+            end
+
+            metric "Memory" do
+              used_mem  = (`free | grep 'buffers/cache' | awk '{print \$3}'`).to_f
+              total_mem = (`free | grep 'Mem:' | awk '{print \$2}'`).to_f
+              used_pct  = used_mem / total_mem * 100.0
+
+              puts "Memory utilization is #{used_pct}% as of #{Time.now}"
+
+              value used_pct, unit: :percent
+
+              watch do
+                name "Memory Utilization"
+                description "The memory utilization is too high"
+                evaluations 2
+                condition { average.over_period(300) > 90 }
+              end
+            end
+
+            metric "LoadFactor" do
+              cpu_load = (`cat /proc/loadavg | awk '{print \$1}'`).to_f
+              cpu_cores = (`nproc`).to_i
+              load_factor = cpu_load / cpu_cores * 100.0
+
+              puts "CPU load factor is #{load_factor} (load: #{cpu_load}, cores: #{cpu_cores}) as of #{Time.now}"
+
+              value load_factor, unit: :percent
+
+              watch do
+                name "CPU Load Factor"
+                description "The CPU Load Factor (load per core) is too high"
+                evaluations 2
+                condition { average.over_period(300) > 70 }
+              end
+            end
+          end
+        end
+      end
     end
 
     @careerarc   = MetriCollect["CareerArc"]
@@ -305,7 +371,7 @@ class MetriCollectTest < Minitest::Test
   end
 
   def test_runner
-    runner = MetriCollect::Runner.new("CareerArc", frequency: 5, iterations: 5)
+    runner = MetriCollect::Runner.new("Runner", frequency: 10, iterations: 5)
     runner.start
   end
 
