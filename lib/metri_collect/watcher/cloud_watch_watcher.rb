@@ -141,7 +141,7 @@ module MetriCollect
           description: alarm.alarm_description,
           metric_name: alarm.metric_name,
           namespace: alarm.namespace,
-          dimensions: alarm.dimensions.inject({}) { |m,d| m.update(d.name => d.value) },
+          dimensions: alarm.dimensions.inject([]) { |m,d| m << { name: d.name, value: d.value } },
           evaluations: alarm.evaluation_periods,
           period: alarm.period,
           threshold: alarm.threshold,
