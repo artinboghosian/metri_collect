@@ -134,6 +134,7 @@ class MetriCollectTest < Minitest::Test
                 name "Too many widgets created"
                 description "Triggered when the widget creation rate is too high"
                 condition { sum.over_period(3600) > 10 }
+                actions
               end
             end
           end

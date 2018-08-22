@@ -5,6 +5,7 @@ module MetriCollect
       @namespace   = namespace
       @metric_name = metric_name
       @dimensions  = dimensions
+      @actions     = []
       @urgency     = nil
       @missing     = :missing
       @evaluations = 1
@@ -29,6 +30,7 @@ module MetriCollect
         watch.metric_name = @metric_name
         watch.namespace = @namespace
         watch.dimensions = @dimensions
+        watch.actions = @actions
       end
     end
 
@@ -54,6 +56,10 @@ module MetriCollect
 
     def missing(missing)
       @missing = missing
+    end
+
+    def actions(*actions)
+      @actions = actions
     end
 
     class Condition
