@@ -5,8 +5,6 @@ module MetriCollect
     class CloudWatchWatcher
       attr_reader :options
 
-      CLIENT_OPTS = [:region, :credentials]
-
       STATISTIC_MAP = {
         average: "Average",
         sum: "Sum",
@@ -51,8 +49,28 @@ module MetriCollect
         @prefix ||= options.fetch(:alarm_prefix, "MetriCollect - ")
       end
 
+      def urgency_actions
+        @urgency_actions ||= options.fetch(:urgency_actions, {}).inject({}) do |memo, (key, value)|
+          memo.update(key => Array(value))
+        end
+      end
+
+      def default_actions
+        @default_actions ||= {
+          stop:      { alarm: "arn:aws:automate:#{region}:ec2:stop" },
+          terminate: { alarm: "arn:aws:automate:#{region}:ec2:terminate" },
+          recover:   { alarm: "arn:aws:automate:#{region}:ec2:recover" }
+        }
+      end
+
       def actions
-        @actions ||= options.fetch(:actions, {})
+        @actions ||= begin
+          default_actions.merge(options.fetch(:actions, {})).inject({}) do |memo, (key, value)|
+            value = { ok: Array(value), insufficient_data: Array(value), alarm: Array(value) } unless value.is_a?(Hash)
+            value.each { |k,v| value.update(k => Array(v)) }
+            memo.update(key => value)
+          end
+        end
       end
 
       def grace_period
@@ -97,9 +115,9 @@ module MetriCollect
       end
 
       def put_watch_as_alarm(watch)
-        urgency = watch.urgency || default_urgency
-        alarm_actions = actions.key?(urgency) ? Array(actions[urgency]) : nil
-        attempts = 0
+        urgency    = watch.urgency || default_urgency
+        action_map = actions_for_watch(watch)
+        attempts   = 0
 
         begin
           response = client.put_metric_alarm(
@@ -113,9 +131,9 @@ module MetriCollect
             threshold: watch.threshold,
             statistic: statistic_symbol_to_string(watch.statistic),
             comparison_operator: comparison_symbol_to_string(watch.comparison),
-            alarm_actions: alarm_actions,
-            ok_actions: alarm_actions,
-            insufficient_data_actions: alarm_actions,
+            alarm_actions: action_map[:alarm],
+            ok_actions: action_map[:ok],
+            insufficient_data_actions: action_map[:insufficient_data],
             treat_missing_data: missing_symbol_to_string(watch.missing)
           )
 
@@ -136,6 +154,10 @@ module MetriCollect
       end
 
       def map_alarm_to_watch(alarm)
+        action_keys  = alarm_action_keys(alarm)
+        urgency      = action_keys_to_urgency(action_keys)
+        action_keys -= urgency_actions[urgency] if urgency
+
         Watch.from_object(
           name: alarm.alarm_name,
           description: alarm.alarm_description,
@@ -147,9 +169,19 @@ module MetriCollect
           threshold: alarm.threshold,
           statistic: statistic_string_to_symbol(alarm.statistic),
           comparison: comparison_string_to_symbol(alarm.comparison_operator),
-          urgency: actions_to_urgency(alarm.alarm_actions),
-          missing: missing_string_to_symbol(alarm.treat_missing_data)
+          missing: missing_string_to_symbol(alarm.treat_missing_data),
+          urgency: urgency,
+          actions: action_keys
         )
+      end
+
+      def actions_for_watch(watch)
+        urgency     = watch.urgency || default_urgency
+        action_keys = watch.actions + urgency_actions[urgency]
+        actions_map = action_keys.inject({ ok: [], insufficient_data: [], alarm: [] }) do |memo, key|
+          actions.fetch(key, {}).each { |k, v| memo[k] += v if memo.key?(k) } if value = [key]
+          memo
+        end
       end
 
       def statistic_string_to_symbol(statistic)
@@ -179,12 +211,37 @@ module MetriCollect
         MISSING_MAP.fetch(missing, "missing")
       end
 
-      def actions_to_urgency(alarm_actions)
-        actions.select { |urgency, action| alarm_actions.include?(action) }.keys.first
+      def action_keys_to_urgency(action_keys)
+        urgency_actions.select do |urgency, keys|
+          action_keys & keys == keys
+        end.keys.first
+      end
+
+      def alarm_action_keys(alarm)
+        actions.select do |key, value|
+          begin
+            (value[:alarm].nil? || alarm.alarm_actions & value[:alarm] == value[:alarm]) &&
+            (value[:insufficient_data].nil? || alarm.insufficient_data_actions & value[:insufficient_data] == value[:insufficient_data]) &&
+            (value[:ok].nil? || alarm.ok_actions & value[:ok] == value[:ok])
+          rescue Exception => ex
+            puts "THTHTHT: #{ex.class} - #{ex.message}\n#{ex.backtrace.join("\n")}"
+            puts "IT HAPPENED checking alarm: #{alarm.inspect}"
+            puts "And action: #{key}"
+            raise
+          end
+        end.keys
+      end
+
+      def region
+        options.fetch(:region, "us-west-1")
+      end
+
+      def credentials
+        options[:credentials]
       end
 
       def client
-        @client ||= Aws::CloudWatch::Client.new(options.select { |k,v| CLIENT_OPTS.include?(k) })
+        @client ||= Aws::CloudWatch::Client.new(region: region, credentials: credentials)
       end
     end
   end

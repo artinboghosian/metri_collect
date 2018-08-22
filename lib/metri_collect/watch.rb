@@ -1,7 +1,7 @@
 module MetriCollect
   class Watch
     attr_accessor :name, :description, :evaluations, :statistic, :period, :comparison, :threshold, :urgency, :missing
-    attr_accessor :metric_name, :namespace, :dimensions
+    attr_accessor :metric_name, :namespace, :dimensions, :actions
 
     def ==(other)
              self.class == other.class &&
@@ -16,7 +16,8 @@ module MetriCollect
                 missing == other.missing &&
             metric_name == other.metric_name &&
               namespace == other.namespace &&
-             dimensions == other.dimensions
+             dimensions == other.dimensions &&
+                actions == other.actions
     end
 
     def self.from_object(obj)
@@ -37,6 +38,7 @@ module MetriCollect
           watch.metric_name = obj[:metric_name]
           watch.namespace = obj[:namespace]
           watch.dimensions = obj[:dimensions]
+          watch.actions = obj[:actions]
         end
       else
         raise ArgumentError, "Unable to convert #{obj.class} into watch"

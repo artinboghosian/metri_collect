@@ -21,6 +21,7 @@ require "metri_collect/publisher/cloud_watch_publisher"
 
 # watchers
 require "metri_collect/watcher/test_watcher"
+require "metri_collect/watcher/log4r_watcher"
 require "metri_collect/watcher/cloud_watch_watcher"
 
 module MetriCollect
