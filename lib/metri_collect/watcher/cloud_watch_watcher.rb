@@ -220,16 +220,9 @@ module MetriCollect
 
       def alarm_action_keys(alarm)
         actions.select do |key, value|
-          begin
-            (value[:alarm].nil? || alarm.alarm_actions & value[:alarm] == value[:alarm]) &&
-            (value[:insufficient_data].nil? || alarm.insufficient_data_actions & value[:insufficient_data] == value[:insufficient_data]) &&
-            (value[:ok].nil? || alarm.ok_actions & value[:ok] == value[:ok])
-          rescue Exception => ex
-            puts "THTHTHT: #{ex.class} - #{ex.message}\n#{ex.backtrace.join("\n")}"
-            puts "IT HAPPENED checking alarm: #{alarm.inspect}"
-            puts "And action: #{key}"
-            raise
-          end
+          (value[:alarm].nil? || alarm.alarm_actions & value[:alarm] == value[:alarm]) &&
+          (value[:insufficient_data].nil? || alarm.insufficient_data_actions & value[:insufficient_data] == value[:insufficient_data]) &&
+          (value[:ok].nil? || alarm.ok_actions & value[:ok] == value[:ok])
         end.keys
       end
 
