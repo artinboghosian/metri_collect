@@ -157,7 +157,7 @@ module MetriCollect
       def map_alarm_to_watch(alarm)
         action_keys  = alarm_action_keys(alarm)
         urgency      = action_keys_to_urgency(action_keys)
-        action_keys -= urgency_actions[urgency] if urgency
+        action_keys -= urgency_actions.fetch(urgency, []) if urgency
 
         Watch.from_object(
           name: alarm.alarm_name,
@@ -178,7 +178,7 @@ module MetriCollect
 
       def actions_for_watch(watch)
         urgency     = watch.urgency || default_urgency
-        action_keys = watch.actions + urgency_actions[urgency]
+        action_keys = watch.actions + urgency_actions.fetch(urgency, [])
         actions_map = action_keys.inject({ ok: [], insufficient_data: [], alarm: [] }) do |memo, key|
           actions.fetch(key, {}).each { |k, v| memo[k] += v if memo.key?(k) } if value = [key]
           memo
