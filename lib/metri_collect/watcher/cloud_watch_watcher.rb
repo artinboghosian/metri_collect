@@ -10,7 +10,8 @@ module MetriCollect
         sum: "Sum",
         maximum: "Maximum",
         minimum: "Minimum",
-        sample_count: "Sample Count"
+        sample_count: "Sample Count",
+        other: "Other"
       }
 
       COMPARISON_MAP = {
@@ -186,11 +187,11 @@ module MetriCollect
 
       def statistic_string_to_symbol(statistic)
         @statistic_reverse_map ||= STATISTIC_MAP.invert
-        @statistic_reverse_map[statistic] || raise(ArgumentError, "Unable to convert '#{statistic}' into watch statistic")
+        @statistic_reverse_map[statistic] || :other
       end
 
       def statistic_symbol_to_string(statistic)
-        STATISTIC_MAP[statistic] || raise(ArgumentError, "Unable to convert '#{statistic}' into watch statistic")
+        STATISTIC_MAP[statistic] || "Other"
       end
 
       def comparison_string_to_symbol(comparison)
