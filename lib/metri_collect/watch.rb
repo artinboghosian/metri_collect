@@ -4,20 +4,21 @@ module MetriCollect
     attr_accessor :metric_name, :namespace, :dimensions, :actions
 
     def ==(other)
-             self.class == other.class &&
-                   name == other.name &&
-            description == other.description &&
-            evaluations == other.evaluations &&
-              statistic == other.statistic &&
-                 period == other.period &&
-             comparison == other.comparison &&
-              threshold == other.threshold &&
-                urgency == other.urgency &&
-                missing == other.missing &&
-            metric_name == other.metric_name &&
-              namespace == other.namespace &&
-             dimensions == other.dimensions &&
-                actions == other.actions
+      compare(:class, :name, :description, :evaluations, :statistic, :period, :comparison, :threshold, :urgency, :missing, :metric_name, :namespace, :dimensions, :actions)
+    end
+
+    def compare(other, *attrs)
+      attrs.inject(true) do |result, attribute|
+        thisVal  = self.send(attribute)
+        otherVal = other.send(attribute)
+
+        if thisVal == otherVal
+          next true
+        else
+          puts "Watch '#{name}': Difference in #{attribute}: '#{thisVal}' != '#{otherVal}'"
+          break false
+        end
+      end
     end
 
     def self.from_object(obj)
