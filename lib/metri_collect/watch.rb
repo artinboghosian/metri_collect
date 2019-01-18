@@ -4,7 +4,7 @@ module MetriCollect
     attr_accessor :metric_name, :namespace, :dimensions, :actions
 
     def ==(other)
-      compare(:class, :name, :description, :evaluations, :statistic, :period, :comparison, :threshold, :urgency, :missing, :metric_name, :namespace, :dimensions, :actions)
+      compare(other, :class, :name, :description, :evaluations, :statistic, :period, :comparison, :threshold, :urgency, :missing, :metric_name, :namespace, :dimensions, :actions)
     end
 
     def compare(other, *attrs)
