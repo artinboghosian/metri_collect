@@ -50,12 +50,6 @@ module MetriCollect
         @prefix ||= options.fetch(:alarm_prefix, "MetriCollect - ")
       end
 
-      def urgency_actions
-        @urgency_actions ||= options.fetch(:urgency_actions, {}).inject({}) do |memo, (key, value)|
-          memo.update(key => Array(value))
-        end
-      end
-
       def default_actions
         @default_actions ||= {
           stop:      { alarm: "arn:aws:automate:#{region}:ec2:stop" },
@@ -66,11 +60,13 @@ module MetriCollect
 
       def actions
         @actions ||= begin
-          default_actions.merge(options.fetch(:actions, {})).inject({}) do |memo, (key, value)|
-            value = { ok: Array(value), insufficient_data: Array(value), alarm: Array(value) } unless value.is_a?(Hash)
-            value.each { |k,v| value.update(k => Array(v)) }
-            memo.update(key => value)
+          urgency_actions = options.fetch(:urgency_actions, {}).inject({}) do |memo, (key, value)|
+            memo.update(urgency_action_key(key) => normalize_action_value(value, key))
           end
+
+          default_actions.merge(options.fetch(:actions, {})).inject({}) do |memo, (key, value)|
+            memo.update(key => normalize_action_value(value))
+          end.merge(urgency_actions)
         end
       end
 
@@ -116,7 +112,6 @@ module MetriCollect
       end
 
       def put_watch_as_alarm(watch)
-        urgency    = watch.urgency || default_urgency
         action_map = actions_for_watch(watch)
         attempts   = 0
 
@@ -155,9 +150,9 @@ module MetriCollect
       end
 
       def map_alarm_to_watch(alarm)
-        action_keys  = alarm_action_keys(alarm)
+        action_keys  = alarm_actions_keys(alarm)
         urgency      = action_keys_to_urgency(action_keys)
-        action_keys -= urgency_actions.fetch(urgency, []) if urgency
+        action_keys -= [urgency_action_key(urgency)] if urgency
 
         Watch.from_object(
           name: alarm.alarm_name,
@@ -177,12 +172,25 @@ module MetriCollect
       end
 
       def actions_for_watch(watch)
-        urgency     = watch.urgency || default_urgency
-        action_keys = watch.actions + urgency_actions.fetch(urgency, [])
-        actions_map = action_keys.inject({ ok: [], insufficient_data: [], alarm: [] }) do |memo, key|
-          actions.fetch(key, {}).each { |k, v| memo[k] += v if memo.key?(k) } if value = [key]
+        urgency = watch.urgency || default_urgency
+        action_keys = watch.actions + [urgency_action_key(urgency)]
+
+        action_keys.inject({ ok: [], insufficient_data: [], alarm: [] }) do |memo, key|
+          actions.fetch(key, {}).each { |k, v| memo[k] += v if memo.key?(k) }
           memo
         end
+      end
+
+      def normalize_action_value(value, urgency=nil)
+        if value.is_a?(Hash)
+          { ok: Array(value[:ok]), insufficient_data: Array(value[:insufficient_data]), alarm: Array(value[:alarm]), urgency: urgency }
+        else
+          { ok: Array(value), insufficient_data: Array(value), alarm: Array(value), urgency: urgency }
+        end
+      end
+
+      def urgency_action_key(urgency)
+        "urgency_#{urgency}"
       end
 
       def statistic_string_to_symbol(statistic)
@@ -213,12 +221,14 @@ module MetriCollect
       end
 
       def action_keys_to_urgency(action_keys)
-        urgency_actions.select do |urgency, keys|
-          action_keys & keys == keys
-        end.keys.first
+        action, value = actions.find do |key, value|
+          action_keys.include?(key) && value[:urgency]
+        end
+
+        value[:urgency] if value
       end
 
-      def alarm_action_keys(alarm)
+      def alarm_actions_keys(alarm)
         actions.select do |key, value|
           (value[:alarm].nil? || alarm.alarm_actions & value[:alarm] == value[:alarm]) &&
           (value[:insufficient_data].nil? || alarm.insufficient_data_actions & value[:insufficient_data] == value[:insufficient_data]) &&
