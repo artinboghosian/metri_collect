@@ -322,7 +322,7 @@ module MetriCollect
     # ===================================================================
 
     def existing_instances(filter="")
-      instances_raw = `ps xao pid,pgrp,cmd | grep '#{process_name} #{name_grep_string} #{filter}' | grep -iv #{Process.pid} | awk '{print $1 "\t" $2 "\t" $3}'`
+      instances_raw = `ps xao pid,pgid,command | grep '#{process_name} #{name_grep_string} #{filter}' | grep -iv #{Process.pid} | awk '{print $1 "\t" $2 "\t" $3}'`
       instances_raw.split("\n").map do |row|
         pid, group, command = row.split("\t")
         ProcessInfo.new(pid.to_i, group.to_i, command)
