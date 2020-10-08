@@ -1,4 +1,4 @@
-require 'aws-sdk'
+require 'aws-sdk-cloudwatch'
 
 module MetriCollect
   module Watcher
