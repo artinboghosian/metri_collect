@@ -15,8 +15,6 @@ module MetriCollect
       def watch(*watches)
         watches.each do |watch|
           watched.push(watch)
-
-          puts "TestWatcher: Watching #{watch}"
         end
       end
 
