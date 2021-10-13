@@ -16,11 +16,13 @@ require "metri_collect/runner"
 
 # publishers
 require "metri_collect/publisher/test_publisher"
+require "metri_collect/publisher/stdout_publisher"
 require "metri_collect/publisher/log4r_publisher"
 require "metri_collect/publisher/cloud_watch_publisher"
 
 # watchers
 require "metri_collect/watcher/test_watcher"
+require "metri_collect/watcher/stdout_watcher"
 require "metri_collect/watcher/log4r_watcher"
 require "metri_collect/watcher/cloud_watch_watcher"
 

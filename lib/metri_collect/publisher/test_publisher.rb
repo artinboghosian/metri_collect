@@ -13,11 +13,7 @@ module MetriCollect
 
       def publish(*metrics)
         metrics.each do |metric|
-          next if metric.external?
-
-          published.push(metric)
-
-          puts "TestPublisher: Published #{metric}"
+          published.push(metric) unless metric.external?
         end
       end
 
