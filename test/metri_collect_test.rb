@@ -336,6 +336,50 @@ class MetriCollectTest < Minitest::Test
     assert_metric_equal metric, namespace: "CareerArc/Counters", name: "Direct Block Count", value: 10, timestamp: timestamp, unit: :count
   end
 
+  def test_publish_with_watches
+    timestamp = Time.now
+    options   = {
+      namespace: "CareerArc/TestWithWatches",
+      name: "test_with_watches",
+      value: 1,
+      timestamp: timestamp,
+      unit: :count,
+      dimensions: { 'DaemonName' => 'TestDaemon' },
+      watches: [{
+        name: 'test watcher',
+        description: 'the name isn\'t clear enough?',
+        statistic: :sum,
+        evaluations: 1,
+        period: 3600,
+        threshold: 0,
+        urgency: 0,
+        missing: :ok,
+        comparison: :>,
+        actions: []
+      }]
+    }
+
+    @watcher.watched.clear
+    @careerarc.prefix_metrics_with 'development'
+    options.merge!(template: :instance)
+
+    assert_equal 0, @watcher.watched.count
+
+    @careerarc.publish(options)
+
+    assert_equal 1, @watcher.watched.count
+
+    metric = @publisher.published.last
+
+    watcher_from_hash = @careerarc.watches.to_a.last
+    instance_id_dimension = {name: "InstanceId", value: "i-123456"}
+
+    assert_equal true, @watcher.watched?(watcher_from_hash)
+    assert_equal metric.namespace, watcher_from_hash.namespace
+    assert_equal metric.dimensions, watcher_from_hash.dimensions
+    assert_includes watcher_from_hash.dimensions, instance_id_dimension
+  end
+
   def test_watch
     assert_equal 0, @watchers.watches.count
 

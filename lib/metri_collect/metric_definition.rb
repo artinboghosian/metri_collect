@@ -20,15 +20,14 @@ module MetriCollect
     def call
       @dimensions = []
       instance_eval(&@body)
-      @templates.each { |template| template.apply(self) }
-
+      apply_templates
       @watches.each do |name, block|
-        application.watches << WatchDefinition.new(name, @namespace, @name, @dimensions, &block).call
+        application.watches << WatchDefinition.new(name, prefixed_namespace, @name, @dimensions, &block).call
       end
 
       Metric.new.tap do |metric|
         metric.name       = @name
-        metric.namespace  = @namespace
+        metric.namespace  = prefixed_namespace
         metric.unit       = @unit
         metric.timestamp  = @timestamp
         metric.dimensions = @dimensions
@@ -48,6 +47,16 @@ module MetriCollect
       names.each { |name| @templates << MetricTemplate.fetch(name) }
     end
 
+    def apply_templates
+      return if @templates.empty?
+
+      to_apply = @templates.dup
+      to_apply.each do |template|
+        template.apply(self)
+        @templates.delete(template)
+      end
+    end
+
     def name(name)
       @name = name
     end
@@ -56,7 +65,13 @@ module MetriCollect
       @namespace = namespace
     end
 
-    def value(value=nil, unit: :count, &block)
+    def prefixed_namespace
+      return @namespace unless options[:prefix]
+
+      @namespace.split('/').insert(1, options[:prefix]).join('/')
+    end
+
+    def value(value = nil, unit: :count, &block)
       if value == :external
         options[:external] = true
         return
@@ -83,6 +98,17 @@ module MetriCollect
       @watches[name] = block
     end
 
+    def watches(watch_array = nil)
+      apply_templates
+      watch_array.each do |watch_def|
+        watch_def.merge!({
+          namespace: prefixed_namespace,
+          dimensions: @dimensions
+        })
+        application.watches << Watch.from_object(watch_def)
+      end
+    end
+
     def external?
       options.fetch(:external, false)
     end
@@ -91,19 +117,20 @@ module MetriCollect
       options.fetch(:roles, nil)
     end
 
-    def self.build_metric(obj)
+    def self.build_metric(obj, opts = {})
       return obj if obj.nil? || obj.is_a?(Metric)
 
       if obj.is_a?(Hash)
         obj_hash = obj.dup
+        application = opts.delete(:application)
         name = obj_hash.delete(:name)
-        namespace = obj_hash.delete(:namespace)
+        base_namespace = obj_hash.delete(:namespace)
         obj_template = obj_hash.delete(:template)
 
-        metric_definition = MetricDefinition.new(nil, namespace, name) do
+        metric_definition = MetricDefinition.new(application, base_namespace, name, opts) do
           template(obj_template) if obj_template
 
-          obj_hash.each do |attribute,value|
+          obj_hash.each do |attribute, value|
             send(attribute, value) if respond_to?(attribute)
           end
         end
