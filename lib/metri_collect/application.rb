@@ -107,9 +107,7 @@ module MetriCollect
         when String
           metrics[metric_or_id]
         else
-          metric = MetricDefinition.build_metric(metric_or_id)
-          metric.namespace = metric.namespace.split("/").insert(1, metric_prefix).join("/") if metric_prefix
-          metric
+          MetricDefinition.build_metric(metric_or_id, application: self, prefix: metric_prefix)
         end
       end
     end
