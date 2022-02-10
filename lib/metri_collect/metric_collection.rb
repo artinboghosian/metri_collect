@@ -9,17 +9,9 @@ module MetriCollect
       @namespaces  = [namespace]
       @roles       = []
       @groups      = {}
-      @external    = false
     end
 
     def namespace(namespace, options = {}, &block)
-      @ext_prev  = @external
-
-      if options[:external]
-        @namespaces = []
-        @external   = true
-      end
-
       if options[:roles]
         @roles << options[:roles] if options[:roles]
       end
@@ -29,17 +21,16 @@ module MetriCollect
       @namespaces.pop
 
       @roles.pop if options[:roles]
-      @external = @ext_prev if options[:external]
     end
 
-    def group(name, &block)
+    def group(name, options = {}, &block)
       id = Metric.id(name, current_namespace)
       raise ArgumentError, "Metric '#{id}' has already been defined" if metric_defined?(id)
-      @groups[id] = MetricDefinitionGroup.new(application, current_namespace, name, roles: current_roles, external: external?, &block)
+      @groups[id] = MetricDefinitionGroup.new(application, current_namespace, name, options.merge(roles: current_roles), &block)
     end
 
-    def metric(name, &block)
-      group(name) { metric(&block) }
+    def metric(name, options = {}, &block)
+      group(name, options) { metric(&block) }
     end
 
     def each(&block)
@@ -63,10 +54,6 @@ module MetriCollect
     def [](id)
       raise ArgumentError, "Metric '#{id}' has not been defined" unless metric_defined?(id)
       @groups[id].call
-    end
-
-    def external?
-      @external == true
     end
 
     private

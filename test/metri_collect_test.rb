@@ -117,19 +117,21 @@ class MetriCollectTest < Minitest::Test
         application.watchers :test
 
         application.metrics do
-          metric "Errors" do
-            value Application.errors
-            dimensions "Type" => "Application"
-
-            watch do
-              name "Error Rate Too High"
-              description "Triggered when the Application error rate is too high"
-              condition { sum.over_period(3600) > 10 }
+          namespace "External" do
+            metric "Errors", external: true do
+              watch do
+                name "Error Rate Too High"
+                description "Triggered when the Application error rate is too high"
+                condition { sum.over_period(3600) > 10 }
+              end
             end
           end
 
-          namespace "External", external: true do
+          namespace "Internal" do
             metric "Widgets" do
+              value Application.errors
+              dimensions "Type" => "Application"
+
               watch do
                 name "Too many widgets created"
                 description "Triggered when the widget creation rate is too high"
@@ -387,6 +389,15 @@ class MetriCollectTest < Minitest::Test
 
     assert_equal 2, @watchers.watches.count
     watches = @watchers.watches.to_a
+    metrics = @watchers.metrics.to_a
+
+    metric_ext = metrics[0]
+    metric_int = metrics[1]
+
+    assert_equal metric_int.namespace, 'Watchers/Internal'
+    assert_equal metric_ext.namespace, 'Watchers/External'
+    refute metric_int.external?
+    assert metric_ext.external?
 
     watch_int = watches[0]
     watch_ext = watches[1]
